@@ -154,9 +154,9 @@ class SBIO extends Bundle {
   val ready = Input(Bool())
 
   def fromTLA(x: DecoupledIO[TLBundleA]) = {
-    when(x.fire) {
-      printf(cf"TLA2SB: ${x.bits}\n")
-    }
+    // when(x.fire) {
+    //  printf(cf"TLA2SB: ${x.bits}\n")
+    // }
     valid   := x.valid
     x.ready := ready
     data    := (new SwitchboardTLBundleA).fromTLA(x.bits).pack
@@ -166,9 +166,9 @@ class SBIO extends Bundle {
 
   def toTLA: DecoupledIO[TLBundleA] = {
     val x = Wire(Decoupled(new TLBundleA(SBConst.SBTLBundleParameters)))
-    when(x.fire) {
-      printf(cf"SB2TLA: ${x.bits}\n")
-    }
+    // when(x.fire) {
+    //  printf(cf"SB2TLA: ${x.bits}\n")
+    // }
     x.valid := valid
     ready   := x.ready
     x.bits  := (new SwitchboardTLBundleA).unpack(data).toTLA
@@ -176,9 +176,9 @@ class SBIO extends Bundle {
   }
 
   def fromTLD(x: DecoupledIO[TLBundleD]) = {
-    when(x.fire) {
-      printf(cf"TLD2SB: ${x.bits}\n")
-    }
+    // when(x.fire) {
+    //  printf(cf"TLD2SB: ${x.bits}\n")
+    // }
     valid   := x.valid
     x.ready := ready
     data    := (new SwitchboardTLBundleD).fromTLD(x.bits).pack
@@ -188,9 +188,9 @@ class SBIO extends Bundle {
 
   def toTLD: DecoupledIO[TLBundleD] = {
     val x = Wire(Decoupled(new TLBundleD(SBConst.SBTLBundleParameters)))
-    when(x.fire) {
-      printf(cf"SB2TLD: ${x.bits}\n")
-    }
+    // when(x.fire) {
+    //  printf(cf"SB2TLD: ${x.bits}\n")
+    // }
     x.valid := valid
     ready   := x.ready
     x.bits  := (new SwitchboardTLBundleD).unpack(data).toTLD
