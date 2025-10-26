@@ -63,5 +63,13 @@ typedef struct TLMessageD {
     uint32_t reserved;  //Always: 0
 } __attribute__((packed)) TLMessageD;
 
+typedef struct TLBundleParams {
+    uint8_t address_bit_width;
+    uint8_t source_bit_width;
+    uint8_t sink_bit_width;
+    uint8_t size_bit_width;
+    uint32_t data_bit_width;
+} TLBundleParams;
+
 
 #endif // __TILELINKLIB_H__

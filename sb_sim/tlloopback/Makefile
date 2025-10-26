@@ -4,6 +4,7 @@
 EXDIR := $(abspath ..)
 SBDIR := $(shell switchboard --path)
 
+
 .PHONY: verilator
 verilator: client
 	./build.py --tool verilator
@@ -12,8 +13,9 @@ verilator: client
 icarus: client
 	./build.py --tool icarus
 
-client: client.cc $(SBDIR)/cpp/switchboard.hpp
-	g++ -std=c++11 -I$(SBDIR)/cpp $< -o $@
+client: client.cc $(SBDIR)/cpp/switchboard.hpp \
+		../include/tilelinklib.h ../include/tilelinklib.hpp  
+	g++ -std=c++11 -I$(SBDIR)/cpp -I../include $< -o $@
 
 .PHONY: clean
 clean:
