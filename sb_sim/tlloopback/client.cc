@@ -24,8 +24,9 @@ void client_thread(ClientTLAgent *client) {
 
   // send packet
   client->send_a(tl_a);
+  client->print_a(tl_a);
 
-  //TLMessageA *tl_a = (TLMessageA *)packetA.data;
+  // TLMessageA *tl_a = (TLMessageA *)packetA.data;
   tl_a.opcode = PutFullData;
   tl_a.param = 0;
   tl_a.size = 4; // 8 bytes
@@ -39,9 +40,11 @@ void client_thread(ClientTLAgent *client) {
 
   // send packet
   client->send_a(tl_a);
+  client->print_a(tl_a);
 
   TLMessageD tl_d;
   client->recv_d(tl_d);
+  client->print_d(tl_d);
   assert(tl_d.opcode == AccessAck);
   assert(tl_d.denied == 0);
 }
@@ -72,6 +75,7 @@ void manager_thread(ManagerTLAgent *manager) {
 int main() {
 
   ClientTLAgent client("client_0");
+  client.set_TLBundleParams("Master", 64, 20, 8, 3);
 
   ManagerTLAgent manager("manager_0");
 

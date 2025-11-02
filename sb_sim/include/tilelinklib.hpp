@@ -4,30 +4,88 @@
 #include "switchboard.hpp"
 #include "tilelinklib.h"
 #include <cstdint>
+#include <iostream>
 #include <string>
+
+static inline std::string data_to_bytes(const uint8_t *data, int data_width) {
+  std::string result;
+  int num_bytes = data_width / 8;
+  char byte_str[4];
+
+  result = "[";
+  for (int i = 0; i < num_bytes; i++) {
+    snprintf(byte_str, sizeof(byte_str), "%02x", data[i]);
+    result += byte_str;
+    if (i < num_bytes - 1)
+      result += " ";
+  }
+  result += "]";
+  return result;
+}
+
+static inline std::string tlA_to_str(const TLMessageA &msg,
+                                     const TLBundleParams &p) {
+  char buf[512];
+  snprintf(buf, sizeof(buf),
+           "TL-A[op=%s, param=%d, size=%d, source=%d, corrupt=%d, addr=0x%lx, "
+           "mask=0x%x, data=%s]",
+           get_opcodeA_str(msg.opcode).c_str(), msg.param, msg.size, msg.source,
+           msg.corrupt, msg.address, msg.mask,
+           data_to_bytes(msg.data, p.data_bit_width).c_str());
+  return std::string(buf);
+}
+
+static inline std::string tlD_to_str(const TLMessageD &msg,
+                                     const TLBundleParams &p) {
+  char buf[512];
+  snprintf(buf, sizeof(buf),
+           "TL-D[op=%s, param=%d, size=%d, source=%d, sink=%d, corrupt=%d, "
+           "denied=%d, data=%s]",
+           get_opcodeD_str(msg.opcode).c_str(), msg.param, msg.size, msg.source,
+           msg.sink, msg.corrupt, msg.denied,
+           data_to_bytes(msg.data, p.data_bit_width).c_str());
+  return std::string(buf);
+}
 
 class TLAgent {
 public:
-  TLAgent() {}
+  TLAgent() : p_set(false), info("") {}
+
+  void set_TLBundleParams(const std::string &name, uint32_t dataWidth,
+                          uint8_t addrWidth, uint8_t srcWidth,
+                          uint8_t lgSizeWidth) {
+    assert(!p_set && "TLBundleParams already set!");
+    info = name;
+    p = {.address_bit_width = addrWidth,
+         .source_bit_width = srcWidth,
+         .sink_bit_width = 1,
+         .size_bit_width = lgSizeWidth,
+         .data_bit_width = dataWidth};
+    p_set = true;
+  }
 
 protected:
+  std::string info;
   TLBundleParams p;
+  bool p_set;
 };
 
 // Client Agent class (Master/Source)
 class ClientTLAgent : public TLAgent {
 public:
   ClientTLAgent(const std::string &uri, size_t capacity = 0, bool fresh = false,
-              double max_rate = -1) {
+                double max_rate = -1) {
 
     a_tx.init(uri + "_a.q", capacity, fresh, max_rate);
     d_rx.init(uri + "_d.q", capacity, fresh, max_rate);
-    p = {.address_bit_width = 64,
-         .source_bit_width = 32,
-         .sink_bit_width = 32,
-         .size_bit_width = 4,
-         .data_bit_width = 256,
-        };
+    info = uri;
+    p = {
+        .address_bit_width = 64,
+        .source_bit_width = 32,
+        .sink_bit_width = 32,
+        .size_bit_width = 4,
+        .data_bit_width = 256,
+    };
   }
 
   void send_a(const TLMessageA &tlA) {
@@ -42,6 +100,14 @@ public:
     memcpy(&tlD, &packet.data, sizeof(tlD));
   }
 
+  void print_a(const TLMessageA &msg) const {
+    std::cout << info << ":" << tlA_to_str(msg, p) << std::endl;
+  }
+
+  void print_d(const TLMessageD &msg) const {
+    std::cout << info << ":" << tlD_to_str(msg, p) << std::endl;
+  }
+
 private:
   SBTX a_tx; // A channel
   SBRX d_rx; // D channel
@@ -50,8 +116,8 @@ private:
 // Manager Agent class (Slave/Sink)
 class ManagerTLAgent : public TLAgent {
 public:
-  ManagerTLAgent(const std::string &uri, size_t capacity = 0, bool fresh = false,
-               double max_rate = -1) {
+  ManagerTLAgent(const std::string &uri, size_t capacity = 0,
+                 bool fresh = false, double max_rate = -1) {
     a_rx.init(uri + "_a.q", capacity, fresh, max_rate);
     d_tx.init(uri + "_d.q", capacity, fresh, max_rate);
     p = {.address_bit_width = 64,
@@ -73,44 +139,17 @@ public:
     d_tx.send_blocking(packet);
   }
 
+  void print_a(const TLMessageA &msg) const {
+    std::cout << info << ":" << tlA_to_str(msg, p) << std::endl;
+  }
+
+  void print_d(const TLMessageD &msg) const {
+    std::cout << info << ":" << tlD_to_str(msg, p) << std::endl;
+  }
+
 private:
   SBRX a_rx; // A channel
   SBTX d_tx; // D channel
 };
 
-static inline std::string tlA_to_str(TLMessageA p,
-                                     const TLBundleParams &params) {
-  /*
-      // determine how many bytes to print
-      size_t max_idx;
-      if (nbytes < 0) {
-          max_idx = sizeof(p.data);
-      } else {
-          max_idx = nbytes;
-      }
-
-      // used for convenient formatting with sprintf
-      char buf[128];
-
-      // build up return value
-      std::string retval;
-      retval = "";
-
-      // format control information
-      sprintf(buf, "dest: %08x, last: %d, data: {", p.destination, p.last);
-      retval += buf;
-
-      // format data
-      for (size_t i = 0; i < max_idx; i++) {
-          sprintf(buf, "%02x", p.data[i]);
-          retval += buf;
-          if (i != (max_idx - 1)) {
-              retval += ", ";
-          }
-      }
-      retval += "}";
-  */
-
-  return "";
-}
 #endif // __TILELINKLIB_HPP__
