@@ -10,6 +10,9 @@
 static inline std::string data_to_bytes(const uint8_t *data, int data_width) {
   std::string result;
   int num_bytes = data_width / 8;
+  assert((data_width % 8) == 0);
+  assert(num_bytes != 0 &&
+         (num_bytes & (num_bytes - 1)) == 0); // Check for Power_of_two
   char byte_str[4];
 
   result = "[";

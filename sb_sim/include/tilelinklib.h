@@ -16,19 +16,17 @@ enum TLAOpcode {
 static inline std::string get_opcodeA_str(int opcode) {
   switch (opcode) {
   case 0:
-    return "Get";
-  case 1:
     return "PutFullData";
-  case 2:
+  case 1:
     return "PutPartialData";
-  case 3:
+  case 2:
     return "ArithmeticData";
-  case 4:
+  case 3:
     return "LogicalData";
+  case 4:
+    return "Get";
   case 5:
     return "Hint";
-  case 6:
-    return "Acquire";
   default:
     return "Unknown";
   }
