@@ -7,6 +7,12 @@
 #include <iostream>
 #include <string>
 
+static inline int first_bit_set_u32(uint32_t v) {
+  if (v == 0)
+    return -1;
+  return __builtin_ctz(v);
+}
+
 static inline std::string data_to_bytes(const uint8_t *data, int data_width) {
   std::string result;
   int num_bytes = data_width / 8;
@@ -67,10 +73,101 @@ public:
     p_set = true;
   }
 
+  void putPartial(TLMessageA &msg, uint32_t fromSource, uint64_t toAddress,
+                  uint8_t lgSize, uint32_t mask, const uint8_t *data) {
+    assert(p_set && "TLBundleParams not set!");
+    int size = 1 << lgSize;
+    msg.opcode = PutPartialData;
+    msg.param = 0;
+    msg.size = lgSize;
+    msg.address = toAddress;
+    msg.mask = alignMask(mask, lgSize, toAddress);
+    int i = first_bit_set_u32(msg.mask);
+    memcpy(&msg.data[i], data, size);
+    msg.corrupt = 0;
+  }
+
+  void put(TLMessageA &msg, uint32_t fromSource, uint64_t toAddress,
+           uint8_t lgSize, const uint8_t *data) {
+    assert(p_set && "TLBundleParams not set!");
+    int size = 1 << lgSize;
+    if (size == p.data_bit_width / 8) {
+      msg.opcode = PutFullData;
+    } else {
+      msg.opcode = PutPartialData;
+    }
+    msg.param = 0;
+    msg.size = lgSize;
+    msg.address = toAddress;
+    msg.mask = alignMask(lgSize, toAddress);
+    int i = first_bit_set_u32(msg.mask);
+    memcpy(&msg.data[i], data, size);
+    msg.corrupt = 0;
+  }
+
+  void get(TLMessageA &msg, uint32_t fromSource, uint64_t toAddress,
+           uint8_t lgSize) {
+    msg.opcode = Get;
+    msg.param = 0;
+    msg.size = lgSize;
+    msg.address = toAddress;
+    msg.mask = alignMask(lgSize, toAddress);
+    msg.corrupt = 0;
+  }
+
+  void accessAckData(TLMessageD &msg, uint32_t toSource, uint8_t lgSize,
+                     const uint8_t *data, uint32_t denied,
+                     uint32_t alignedMask) {
+    msg.opcode = AccessAckData;
+    msg.param = 0;
+    msg.size = lgSize;
+    msg.source = toSource;
+    msg.sink = 0;
+    int i = first_bit_set_u32(alignedMask);
+    int size = 1 << lgSize;
+    memcpy(msg.data, data, size);
+    msg.corrupt = 0;
+    msg.denied = denied;
+  }
+
+  void accessAck(TLMessageD &msg, uint32_t toSource, uint8_t lgSize,
+                 uint32_t denied) {
+    msg.opcode = AccessAck;
+    msg.param = 0;
+    msg.size = lgSize;
+    msg.source = toSource;
+    msg.sink = 0;
+    msg.corrupt = 0;
+    msg.denied = denied;
+  }
+
 protected:
   std::string info;
   TLBundleParams p;
   bool p_set;
+
+  uint32_t alignMask(uint32_t lgSize, uint64_t byteAddress) {
+    assert(p_set && "TLBundleParams not set!");
+    uint32_t size = 1 << lgSize;
+    uint32_t unalignedMask = (1 << size) - 1;
+    uint32_t offset = byteAddress & ((p.data_bit_width / 8) - 1);
+    assert(size <= (p.data_bit_width / 8) && "Size exceeds data width!");
+    assert((offset & (size - 1)) == 0 && "Address not aligned to size!");
+    uint32_t slotId = offset >> lgSize;
+    uint32_t alignedMask = unalignedMask << (slotId * size);
+    return alignedMask;
+  }
+
+  uint32_t alignMask(uint32_t unalignedMask, uint32_t lgSize,
+                     uint64_t byteAddress) {
+    uint32_t offset = byteAddress & ((p.data_bit_width / 8) - 1);
+    uint32_t size = 1 << lgSize;
+    assert(size <= (p.data_bit_width / 8) && "Size exceeds data width!");
+    assert((offset & (size - 1)) == 0 && "Address not aligned to size!");
+    uint32_t slotId = offset >> lgSize;
+    uint32_t alignedMask = unalignedMask << (slotId * size);
+    return alignedMask;
+  }
 };
 
 // Client Agent class (Master/Source)
