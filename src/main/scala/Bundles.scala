@@ -204,6 +204,7 @@ case class TLManagerPortParams(
   beatBytes:    Int,
   maxXferBytes: Int = 256,
   executable:   Boolean = true,
+  hasAMO:       Boolean = false,
 )
 
 case class TLClientPortParams(

@@ -37,6 +37,8 @@ abstract class SwitchboardTLAdapter(implicit p: Parameters) extends LazyModule {
               address = AddressSet.misaligned(i.base, i.size),
               regionType = RegionType.UNCACHED,
               executable = i.executable,
+              supportsArithmetic = if (i.hasAMO) { TransferSizes(i.maxXferBytes, i.maxXferBytes) }
+              else { TransferSizes.none },
               supportsPutFull = TransferSizes(1, i.maxXferBytes),
               supportsPutPartial = TransferSizes(1, i.maxXferBytes),
               supportsGet = TransferSizes(1, i.maxXferBytes),
