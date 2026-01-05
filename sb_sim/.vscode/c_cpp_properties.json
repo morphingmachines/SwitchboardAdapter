@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${SBPATH}/switchboard/cpp"
+                "${SBPATH}/switchboard/cpp",
+                "${RISCV}/include"
             ],
             "defines": [],
             "compilerPath": "/home/madhav/redefine/llvm-project/build/bin/clang",

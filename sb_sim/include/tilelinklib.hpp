@@ -73,6 +73,11 @@ public:
     p_set = true;
   }
 
+  TLBundleParams get_TLBundleParams() const {
+    assert(p_set && "TLBundleParams not set!");
+    return p;
+  }
+
   void putPartial(TLMessageA &msg, uint32_t fromSource, uint64_t toAddress,
                   uint8_t lgSize, uint32_t mask, const uint8_t *data) {
     assert(p_set && "TLBundleParams not set!");
@@ -150,12 +155,7 @@ protected:
     assert(p_set && "TLBundleParams not set!");
     uint32_t size = 1 << lgSize;
     uint32_t unalignedMask = (1 << size) - 1;
-    uint32_t offset = byteAddress & ((p.data_bit_width / 8) - 1);
-    assert(size <= (p.data_bit_width / 8) && "Size exceeds data width!");
-    assert((offset & (size - 1)) == 0 && "Address not aligned to size!");
-    uint32_t slotId = offset >> lgSize;
-    uint32_t alignedMask = unalignedMask << (slotId * size);
-    return alignedMask;
+    return alignMask(unalignedMask, lgSize, byteAddress);
   }
 
   uint32_t alignMask(uint32_t unalignedMask, uint32_t lgSize,

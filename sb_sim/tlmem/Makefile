@@ -13,9 +13,12 @@ verilator: client
 icarus: client
 	./build.py --tool icarus
 
+LDFLAGS += -L$(RISCV)/lib -lfesvr
+CFLAGS += -I$(RISCV)/include
+
 client: client.cc $(SBDIR)/cpp/switchboard.hpp \
 		../include/tilelinklib.h ../include/tilelinklib.hpp  
-	g++ -std=c++11 -I$(SBDIR)/cpp -I../include $< -o $@
+	g++ -std=c++17 -I$(SBDIR)/cpp -I../include $(CFLAGS) $< -o $@ $(LDFLAGS)
 
 .PHONY: clean
 clean:

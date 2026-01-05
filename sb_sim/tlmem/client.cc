@@ -1,6 +1,9 @@
 // Copyright (c) 2024 Zero ASIC Corporation
 // This code is licensed under Apache License 2.0 (see LICENSE for details)
 
+#include "fesvr/elfloader.h"
+#include "fesvr/memif.h"
+#include "memifc.hpp"
 #include "switchboard.hpp"
 #include "tilelinklib.hpp"
 #include <iostream>
@@ -14,7 +17,7 @@ void send_thread(ClientTLAgent *client) {
     TLMessageA tl_a;
     tl_a.opcode = PutFullData;
     tl_a.param = 0;
-    tl_a.size = 2; // 32 bytes
+    tl_a.size = 2; // 4 bytes
     tl_a.corrupt = 0;
     tl_a.source = j;
     tl_a.address = offset * 4;
@@ -40,6 +43,7 @@ void recv_thread(ClientTLAgent *client) {
 
 int main() {
   ClientTLAgent client("client_0");
+  client.set_TLBundleParams("client_0", 32, 32, 4, 2);
 
   sb_packet txp;
   std::thread t(send_thread, &client);
@@ -50,6 +54,11 @@ int main() {
   t.join();
   r.join();
 
+  ClientTLMemIfc memifc(client);
+  memif_t memif(&memifc);
+  reg_t entry;
+  char *test_elf = "vecAdd.elf";
+  load_elf(test_elf, &memif, &entry, 64);
   printf("PASS!\n");
 
   return 0;
