@@ -27,7 +27,6 @@ public:
 
     while (bytes_remaining > 0) {
       size_t chunk_size = std::min(bytes_remaining, chunk_align());
-
       // Perform TileLink Get operation
       TLMessageA tlA;
       tlA.opcode = Get;
@@ -35,7 +34,7 @@ public:
       tlA.size = static_cast<uint8_t>(__builtin_ctz(chunk_size));
       tlA.address = curr_addr;
       tlA.source = 0; // Assuming single source
-      tlA.mask = (1 << (chunk_size)) - 1;
+      tlA.mask = ((uint64_t)1 << (chunk_size)) - 1;
       tlA.corrupt = 0;
 
       // tl_agent.print_a(tlA);
@@ -75,7 +74,7 @@ public:
       tlA.size = static_cast<uint8_t>(__builtin_ctz(chunk_size));
       tlA.address = curr_addr;
       tlA.source = 0; // Assuming single source
-      tlA.mask = (1 << chunk_size) - 1;
+      tlA.mask = ((uint64_t)1 << chunk_size) - 1;
       memcpy(tlA.data, src_ptr, chunk_size);
       tlA.corrupt = 0;
 

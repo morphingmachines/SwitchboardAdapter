@@ -1,8 +1,9 @@
 // Copyright (c) 2024 Zero ASIC Corporation
 // This code is licensed under Apache License 2.0 (see LICENSE for details)
 
-#include "fesvr/elfloader.h"
 #include "fesvr/memif.h"
+
+#include "fesvr/elfloader.h"
 #include "memifc.hpp"
 #include "switchboard.hpp"
 #include "tilelinklib.hpp"
