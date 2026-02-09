@@ -154,7 +154,7 @@ protected:
   uint32_t alignMask(uint32_t lgSize, uint64_t byteAddress) {
     assert(p_set && "TLBundleParams not set!");
     uint32_t size = 1 << lgSize;
-    uint32_t unalignedMask = (1 << size) - 1;
+    uint32_t unalignedMask = (((uint64_t)1 << size) - 1);
     return alignMask(unalignedMask, lgSize, byteAddress);
   }
 
