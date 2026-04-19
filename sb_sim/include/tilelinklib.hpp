@@ -6,7 +6,8 @@
 #include <cstdint>
 #include <iostream>
 #include <string>
-
+#include <cstring>
+#include <cassert>
 static inline int first_bit_set_u32(uint32_t v) {
   if (v == 0)
     return -1;
@@ -86,6 +87,7 @@ public:
     msg.param = 0;
     msg.size = lgSize;
     msg.address = toAddress;
+    msg.source = fromSource;
     msg.mask = alignMask(mask, lgSize, toAddress);
     int i = first_bit_set_u32(msg.mask);
     memcpy(&msg.data[i], data, size);
@@ -95,18 +97,15 @@ public:
   void put(TLMessageA &msg, uint32_t fromSource, uint64_t toAddress,
            uint8_t lgSize, const uint8_t *data) {
     assert(p_set && "TLBundleParams not set!");
-    int size = 1 << lgSize;
-    if (size == p.data_bit_width / 8) {
-      msg.opcode = PutFullData;
-    } else {
-      msg.opcode = PutPartialData;
-    }
+    int beat_bytes = p.data_bit_width / 8;
+    msg.opcode = PutFullData;
     msg.param = 0;
     msg.size = lgSize;
     msg.address = toAddress;
+    msg.source = fromSource;
     msg.mask = alignMask(lgSize, toAddress);
     int i = first_bit_set_u32(msg.mask);
-    memcpy(&msg.data[i], data, size);
+    memcpy(&msg.data[i], data, beat_bytes);
     msg.corrupt = 0;
   }
 
@@ -116,6 +115,7 @@ public:
     msg.param = 0;
     msg.size = lgSize;
     msg.address = toAddress;
+    msg.source = fromSource;
     msg.mask = alignMask(lgSize, toAddress);
     msg.corrupt = 0;
   }
@@ -154,7 +154,11 @@ protected:
   uint32_t alignMask(uint32_t lgSize, uint64_t byteAddress) {
     assert(p_set && "TLBundleParams not set!");
     uint32_t size = 1 << lgSize;
-    uint32_t unalignedMask = (((uint64_t)1 << size) - 1);
+    uint8_t beatBytes = p.data_bit_width / 8;
+    uint32_t unalignedMask = (((uint64_t)1 << beatBytes) - 1);
+    if(size >= (p.data_bit_width / 8)) {
+      return unalignedMask;
+    }
     return alignMask(unalignedMask, lgSize, byteAddress);
   }
 
