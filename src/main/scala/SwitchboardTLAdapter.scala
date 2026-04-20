@@ -13,6 +13,7 @@ import freechips.rocketchip.tilelink.{
 }
 import org.chipsalliance.cde.config.Parameters
 import org.chipsalliance.diplomacy.lazymodule._
+import org.chipsalliance.diplomacy.ValName
 
 abstract class SwitchboardTLAdapter(implicit p: Parameters) extends LazyModule {
 
@@ -26,7 +27,7 @@ abstract class SwitchboardTLAdapter(implicit p: Parameters) extends LazyModule {
   val nManagerParams: Seq[TLManagerPortParams]
   val nClientParams:  Seq[TLClientPortParams]
 
-  lazy val managers = nManagerParams.map { i =>
+  lazy val managers = nManagerParams.zipWithIndex.map { case(i,index) =>
     require(i.maxXferBytes <= SBConst.TLMaxTransferSz)
     require(i.beatBytes <= SBConst.TLBeatBytes)
     TLManagerNode(
@@ -48,18 +49,18 @@ abstract class SwitchboardTLAdapter(implicit p: Parameters) extends LazyModule {
           minLatency = 1,
         ),
       ),
-    )
+    )(ValName(s"sb_Manager_$index"))
   }
 
-  lazy val clients = nClientParams.map { i =>
+  lazy val clients = nClientParams.zipWithIndex.map { case(i, index) =>
     require(i.idBits <= SBConst.SBTLBundleParameters.sourceBits)
     TLClientNode(
       Seq(
         TLMasterPortParameters.v1(
-          Seq(TLMasterParameters.v1(name = "SwitchboardWrapperMasterPort", sourceId = IdRange(0, 1 << i.idBits))),
+          Seq(TLMasterParameters.v1(name = "SwitchboardWrapperMasterPort", sourceId = IdRange(0, 1 << i.idBits), visibility = i.visibility)),
         ),
       ),
-    )
+    )(ValName(s"sb_client_$index"))
   }
   override val module: SwitchboardTLAdapterImp[SwitchboardTLAdapter]
 }
