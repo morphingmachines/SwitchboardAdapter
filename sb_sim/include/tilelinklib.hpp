@@ -3,11 +3,11 @@
 
 #include "switchboard.hpp"
 #include "tilelinklib.h"
+#include <cassert>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <string>
-#include <cstring>
-#include <cassert>
 static inline int first_bit_set_u32(uint32_t v) {
   if (v == 0)
     return -1;
@@ -155,8 +155,8 @@ protected:
     assert(p_set && "TLBundleParams not set!");
     uint32_t size = 1 << lgSize;
     uint8_t beatBytes = p.data_bit_width / 8;
-    uint32_t unalignedMask = (((uint64_t)1 << beatBytes) - 1);
-    if(size >= (p.data_bit_width / 8)) {
+    uint32_t unalignedMask = (((uint64_t)1 << size) - 1);
+    if (size >= beatBytes) {
       return unalignedMask;
     }
     return alignMask(unalignedMask, lgSize, byteAddress);
