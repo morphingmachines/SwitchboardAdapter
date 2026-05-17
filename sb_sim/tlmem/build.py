@@ -49,6 +49,7 @@ def main(rtl_dir, topModule_name, n_clients=1, n_managers= 1):
         interfaces=interfaces,
         resets=reset,
         clocks=clock,
+        builddir="rtl_build",
     )
 
     for src_file in chisel_generated_sources(rtl_dir):

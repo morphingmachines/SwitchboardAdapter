@@ -8,6 +8,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+
 static inline int first_bit_set_u32(uint32_t v) {
   if (v == 0)
     return -1;
@@ -35,26 +36,32 @@ static inline std::string data_to_bytes(const uint8_t *data, int data_width) {
 
 static inline std::string tlA_to_str(const TLMessageA &msg,
                                      const TLBundleParams &p) {
-  char buf[512];
-  snprintf(buf, sizeof(buf),
-           "TL-A[op=%s, param=%d, size=%d, source=%d, corrupt=%d, addr=0x%lx, "
-           "mask=0x%x, data=%s]",
-           get_opcodeA_str(msg.opcode).c_str(), msg.param, msg.size, msg.source,
-           msg.corrupt, msg.address, msg.mask,
-           data_to_bytes(msg.data, p.data_bit_width).c_str());
-  return std::string(buf);
+  std::string result = "TL-A[op=" + get_opcodeA_str(msg.opcode);
+  result += ", param=" + std::to_string(msg.param);
+  result += ", size=" + std::to_string(msg.size);
+  result += ", source=" + std::to_string(msg.source);
+  result += ", corrupt=" + std::to_string(msg.corrupt);
+  char addr_buf[32];
+  snprintf(addr_buf, sizeof(addr_buf), ", addr=0x%lx", msg.address);
+  result += addr_buf;
+  char mask_buf[16];
+  snprintf(mask_buf, sizeof(mask_buf), ", mask=0x%x", msg.mask);
+  result += mask_buf;
+  result += ", data=" + data_to_bytes(msg.data, p.data_bit_width) + "]";
+  return result;
 }
 
 static inline std::string tlD_to_str(const TLMessageD &msg,
                                      const TLBundleParams &p) {
-  char buf[512];
-  snprintf(buf, sizeof(buf),
-           "TL-D[op=%s, param=%d, size=%d, source=%d, sink=%d, corrupt=%d, "
-           "denied=%d, data=%s]",
-           get_opcodeD_str(msg.opcode).c_str(), msg.param, msg.size, msg.source,
-           msg.sink, msg.corrupt, msg.denied,
-           data_to_bytes(msg.data, p.data_bit_width).c_str());
-  return std::string(buf);
+  std::string result = "TL-D[op=" + get_opcodeD_str(msg.opcode);
+  result += ", param=" + std::to_string(msg.param);
+  result += ", size=" + std::to_string(msg.size);
+  result += ", source=" + std::to_string(msg.source);
+  result += ", sink=" + std::to_string(msg.sink);
+  result += ", corrupt=" + std::to_string(msg.corrupt);
+  result += ", denied=" + std::to_string(msg.denied);
+  result += ", data=" + data_to_bytes(msg.data, p.data_bit_width) + "]";
+  return result;
 }
 
 class TLAgent {
@@ -65,12 +72,23 @@ public:
                           uint8_t addrWidth, uint8_t srcWidth,
                           uint8_t lgSizeWidth) {
     assert(!p_set && "TLBundleParams already set!");
+    assert(dataWidth <= 256 && "Data width exceeds 256 bits!");
     info = name;
     p = {.address_bit_width = addrWidth,
          .source_bit_width = srcWidth,
          .sink_bit_width = 1,
          .size_bit_width = lgSizeWidth,
-         .data_bit_width = dataWidth};
+         .data_bit_width = dataWidth,
+         .max_transfer_bytes = dataWidth / 8};
+    p_set = true;
+  }
+
+  void set_TLBundleParams(const std::string &name,
+                          const TLBundleParams &params) {
+    assert(!p_set && "TLBundleParams already set!");
+    assert(params.data_bit_width <= 256 && "Data width exceeds 256 bits!");
+    info = name;
+    p = params;
     p_set = true;
   }
 
@@ -82,21 +100,30 @@ public:
   void putPartial(TLMessageA &msg, uint32_t fromSource, uint64_t toAddress,
                   uint8_t lgSize, uint32_t mask, const uint8_t *data) {
     assert(p_set && "TLBundleParams not set!");
+    assert((1 << lgSize) <= p.max_transfer_bytes &&
+           "lgSize exceeds max transfer bytes!");
     int size = 1 << lgSize;
     msg.opcode = PutPartialData;
     msg.param = 0;
     msg.size = lgSize;
     msg.address = toAddress;
     msg.source = fromSource;
-    msg.mask = alignMask(mask, lgSize, toAddress);
-    int i = first_bit_set_u32(msg.mask);
-    memcpy(&msg.data[i], data, size);
+    if (mask == 0) {
+      msg.mask = 0;
+    } else {
+      msg.mask = alignMask(mask, lgSize, toAddress);
+      int i = first_bit_set_u32(msg.mask);
+      memcpy(&msg.data[i], data, size);
+    }
     msg.corrupt = 0;
   }
 
   void put(TLMessageA &msg, uint32_t fromSource, uint64_t toAddress,
            uint8_t lgSize, const uint8_t *data) {
     assert(p_set && "TLBundleParams not set!");
+    assert((1 << lgSize) <= p.max_transfer_bytes &&
+           "lgSize exceeds max transfer bytes!");
+    // Caller must provide exactly beat_bytes of data; full beat is copied.
     int beat_bytes = p.data_bit_width / 8;
     msg.opcode = PutFullData;
     msg.param = 0;
@@ -111,6 +138,9 @@ public:
 
   void get(TLMessageA &msg, uint32_t fromSource, uint64_t toAddress,
            uint8_t lgSize) {
+    assert(p_set && "TLBundleParams not set!");
+    assert((1 << lgSize) <= p.max_transfer_bytes &&
+           "lgSize exceeds max transfer bytes!");
     msg.opcode = Get;
     msg.param = 0;
     msg.size = lgSize;
@@ -121,16 +151,19 @@ public:
   }
 
   void accessAckData(TLMessageD &msg, uint32_t toSource, uint8_t lgSize,
-                     const uint8_t *data, uint32_t denied,
-                     uint32_t alignedMask) {
+                     const uint8_t *data, uint32_t denied) {
+    assert(p_set && "TLBundleParams not set!");
+    assert((1 << lgSize) <= p.max_transfer_bytes &&
+           "lgSize exceeds max transfer bytes!");
     msg.opcode = AccessAckData;
     msg.param = 0;
     msg.size = lgSize;
     msg.source = toSource;
     msg.sink = 0;
-    int i = first_bit_set_u32(alignedMask);
-    int size = 1 << lgSize;
-    memcpy(msg.data, data, size);
+    // Caller must provide exactly beat_bytes of data; full beat is copied. 
+    // The receiver is expected to use the mask from the TL-A message to determine which bytes are valid.
+    int beat_bytes = p.data_bit_width / 8;
+    memcpy(&msg.data[0], data, beat_bytes);
     msg.corrupt = 0;
     msg.denied = denied;
   }
@@ -153,6 +186,7 @@ protected:
 
   uint32_t alignMask(uint32_t lgSize, uint64_t byteAddress) {
     assert(p_set && "TLBundleParams not set!");
+    assert(lgSize <= 5 && "lgSize exceeds 32 bytes!");
     uint32_t size = 1 << lgSize;
     uint8_t beatBytes = p.data_bit_width / 8;
     uint32_t unalignedMask = (((uint64_t)1 << size) - 1);
@@ -189,6 +223,7 @@ public:
         .sink_bit_width = 32,
         .size_bit_width = 4,
         .data_bit_width = 256,
+        .max_transfer_bytes = 32,
     };
   }
 
@@ -228,7 +263,8 @@ public:
          .source_bit_width = 32,
          .sink_bit_width = 32,
          .size_bit_width = 4,
-         .data_bit_width = 256};
+         .data_bit_width = 256,
+         .max_transfer_bytes = 32};
   }
 
   void recv_a(TLMessageA &tlA) {

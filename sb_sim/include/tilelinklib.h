@@ -2,6 +2,7 @@
 #define __TILELINKLIB_H__
 
 #include <stdint.h>
+#include <string>
 #include <unistd.h>
 
 enum TLAOpcode {
@@ -100,6 +101,7 @@ typedef struct TLBundleParams {
   uint8_t sink_bit_width;
   uint8_t size_bit_width;
   uint32_t data_bit_width;
+  uint32_t max_transfer_bytes;
 } TLBundleParams;
 
 #endif // __TILELINKLIB_H__
