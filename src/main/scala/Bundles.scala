@@ -2,8 +2,8 @@ package switchboard
 
 import chisel3._
 import chisel3.util._
-import freechips.rocketchip.tilelink.{TLBundleA, TLBundleD, TLBundleParameters}
 import freechips.rocketchip.diplomacy.AddressSet
+import freechips.rocketchip.tilelink.{TLBundleA, TLBundleD, TLBundleParameters}
 
 object SBConst {
   val BeatBytes       = 52 // Switchboard payload size
@@ -209,6 +209,6 @@ case class TLManagerPortParams(
 )
 
 case class TLClientPortParams(
-  idBits: Int,
-  visibility:          Seq[AddressSet] = Seq(AddressSet(0, ~0)),
+  idBits:     Int,
+  visibility: Seq[AddressSet] = Seq(AddressSet(0, ~0)),
 )
