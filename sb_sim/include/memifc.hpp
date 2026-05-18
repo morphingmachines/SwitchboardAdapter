@@ -1,14 +1,15 @@
 #ifndef __TL_MEMIFC_HPP__
 #define __TL_MEMIFC_HPP__
 
-#include "switchboard.hpp"
-#include "tilelinklib.h"
+#include <cassert>
 #include <cstdint>
-#include <iostream>
-#include <string>
+#include <cstring>
+#include <mutex>
 
-#include "tilelinklib.hpp"
 #include <fesvr/memif.h>
+
+#include "tilelinklib.h"
+#include "tilelinklib.hpp"
 
 class ClientTLMemIfc : public chunked_memif_t {
 public:
@@ -20,38 +21,23 @@ public:
     size_t bytes_remaining = nbytes;
     uint8_t *dst_ptr = static_cast<uint8_t *>(dst);
     addr_t curr_addr = taddr;
+    const size_t beat = chunk_align();
 
-    assert(nbytes >= chunk_align() && "Read size exceeds minimum chunk size");
-    assert(nbytes <= chunk_max_size() &&
-           "Read size exceeds maximum chunk size");
+    assert((taddr & (beat - 1)) == 0 && "addr must be aligned to beat size");
+    assert(nbytes >= beat && "Read size below minimum chunk size");
+    assert(nbytes <= chunk_max_size() && "Read size exceeds maximum chunk size");
+    assert(nbytes % beat == 0 && "Read size must be multiple of chunk_align()");
 
     while (bytes_remaining > 0) {
-      size_t chunk_size = std::min(bytes_remaining, chunk_align());
-      // Perform TileLink Get operation
-      TLMessageA tlA;
-      tlA.opcode = Get;
-      tlA.param = 0;
-      tlA.size = static_cast<uint8_t>(__builtin_ctz(chunk_size));
-      tlA.address = curr_addr;
-      tlA.source = 0; // Assuming single source
-      tlA.mask = ((uint64_t)1 << (chunk_size)) - 1;
-      tlA.corrupt = 0;
+      // Largest naturally-aligned power-of-2 chunk starting at curr_addr
+      size_t chunk = floor_pow2(bytes_remaining);
+      while (curr_addr & (chunk - 1))
+        chunk >>= 1;
 
-      // tl_agent.print_a(tlA);
-      tl_agent.send_a(tlA);
-
-      TLMessageD tlD;
-      tl_agent.recv_d(tlD);
-      // tl_agent.print_d(tlD);
-
-      // Copy data to destination
-      size_t data_bytes = 1 << tlD.size;
-      memcpy(dst_ptr, tlD.data, data_bytes);
-
-      // Update pointers and counters
-      dst_ptr += data_bytes;
-      curr_addr += data_bytes;
-      bytes_remaining -= data_bytes;
+      read(curr_addr, chunk, dst_ptr);
+      dst_ptr += chunk;
+      curr_addr += chunk;
+      bytes_remaining -= chunk;
     }
   }
 
@@ -59,36 +45,23 @@ public:
     size_t bytes_remaining = nbytes;
     const uint8_t *src_ptr = static_cast<const uint8_t *>(src);
     addr_t curr_addr = taddr;
+    const size_t beat = chunk_align();
 
-    assert(nbytes >= chunk_align() && "Write size exceeds minimum chunk size");
-    assert(nbytes <= chunk_max_size() &&
-           "Write size exceeds maximum chunk size");
+    assert((taddr & (beat - 1)) == 0 && "addr must be aligned to beat size");
+    assert(nbytes >= beat && "Write size below minimum chunk size");
+    assert(nbytes <= chunk_max_size() && "Write size exceeds maximum chunk size");
+    assert(nbytes % beat == 0 && "Write size must be multiple of chunk_align()");
 
     while (bytes_remaining > 0) {
-      size_t chunk_size = std::min(bytes_remaining, chunk_align());
+      // Largest naturally-aligned power-of-2 chunk starting at curr_addr
+      size_t chunk = floor_pow2(bytes_remaining);
+      while (curr_addr & (chunk - 1))
+        chunk >>= 1;
 
-      // Prepare TileLink Put operation
-      TLMessageA tlA;
-      tlA.opcode = PutFullData;
-      tlA.param = 0;
-      tlA.size = static_cast<uint8_t>(__builtin_ctz(chunk_size));
-      tlA.address = curr_addr;
-      tlA.source = 0; // Assuming single source
-      tlA.mask = ((uint64_t)1 << chunk_size) - 1;
-      memcpy(tlA.data, src_ptr, chunk_size);
-      tlA.corrupt = 0;
-
-      // tl_agent.print_a(tlA);
-      tl_agent.send_a(tlA);
-
-      TLMessageD tlD;
-      tl_agent.recv_d(tlD);
-      // tl_agent.print_d(tlD);
-
-      // Update pointers and counters
-      src_ptr += chunk_size;
-      curr_addr += chunk_size;
-      bytes_remaining -= chunk_size;
+      write(curr_addr, chunk, src_ptr);
+      src_ptr += chunk;
+      curr_addr += chunk;
+      bytes_remaining -= chunk;
     }
   }
 
@@ -106,10 +79,60 @@ public:
 
   size_t chunk_align() override { return (tl_params.data_bit_width / 8); }
 
-  size_t chunk_max_size() override { return (tl_params.data_bit_width / 8); }
+  size_t chunk_max_size() override { return (tl_params.max_transfer_bytes); }
 
 protected:
   ClientTLAgent &tl_agent;
   TLBundleParams tl_params;
+  std::mutex lock_;
+
+  // Largest power-of-2 <= n. Undefined for n == 0.
+  static size_t floor_pow2(size_t n) {
+    return size_t(1) << (63 - __builtin_clzll(n));
+  }
+
+  void read(uint64_t addr, size_t len, void *data) {
+    std::lock_guard<std::mutex> guard(lock_);
+    assert((len & (len - 1)) == 0 && "len must be power of 2");
+    assert((addr & (len - 1)) == 0 && "addr must be aligned to len");
+    const size_t beat_bytes = tl_params.data_bit_width / 8;
+    assert(len >= beat_bytes && "len must be >= beat size");
+    const size_t num_beats = len / beat_bytes;
+    const uint8_t lg_size = static_cast<uint8_t>(__builtin_ctzll(len));
+
+    TLMessageA tl_a;
+    tl_agent.get(tl_a, 0, addr, lg_size);
+    tl_agent.send_a(tl_a);
+
+    uint8_t *dst = static_cast<uint8_t *>(data);
+    TLMessageD tl_d;
+    for (size_t i = 0; i < num_beats; i++) {
+      tl_agent.recv_d(tl_d);
+      assert(tl_d.denied == 0 && "read denied");
+      memcpy(dst + i * beat_bytes, tl_d.data, beat_bytes);
+    }
+  }
+
+  void write(uint64_t addr, size_t len, const void *data) {
+    std::lock_guard<std::mutex> guard(lock_);
+    assert((len & (len - 1)) == 0 && "len must be power of 2");
+    assert((addr & (len - 1)) == 0 && "addr must be aligned to len");
+    const size_t beat_bytes = tl_params.data_bit_width / 8;
+    assert(len >= beat_bytes && "len must be >= beat size");
+    const size_t num_beats = len / beat_bytes;
+    const uint8_t lg_size = static_cast<uint8_t>(__builtin_ctzll(len));
+
+    const uint8_t *src = static_cast<const uint8_t *>(data);
+    TLMessageA tl_a;
+    for (size_t i = 0; i < num_beats; i++) {
+      tl_agent.put(tl_a, 0, addr, lg_size, src + i * beat_bytes);
+      tl_agent.send_a(tl_a);
+    }
+
+    TLMessageD tl_d;
+    tl_agent.recv_d(tl_d);
+    assert(tl_d.denied == 0 && "write denied");
+  }
+
 };
 #endif // __TL_MEMIFC_HPP__
