@@ -58,7 +58,7 @@ int main() {
   ClientTLMemIfc memifc(client);
   memif_t memif(&memifc);
   reg_t entry;
-  char *test_elf = "vecAdd.elf";
+  const char *test_elf = "vecAdd.elf";
   load_elf(test_elf, &memif, &entry, 64);
   printf("PASS!\n");
 

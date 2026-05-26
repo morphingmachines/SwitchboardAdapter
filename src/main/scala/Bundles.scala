@@ -139,9 +139,9 @@ class SwitchboardTLBundleD extends Bundle {
     x.param   := param
     x.size    := size
     x.source  := source
-    x.sink    := source
+    x.sink    := sink
     x.corrupt := corrupt
-    x.denied  := corrupt
+    x.denied  := denied
     x.data    := data
     x
   }

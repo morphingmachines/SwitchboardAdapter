@@ -110,6 +110,8 @@ public:
     msg.source = fromSource;
     if (mask == 0) {
       msg.mask = 0;
+    } else if(lgSize >= 32){ 
+      msg.mask = mask; 
     } else {
       msg.mask = alignMask(mask, lgSize, toAddress);
       int i = first_bit_set_u32(msg.mask);
@@ -186,13 +188,12 @@ protected:
 
   uint32_t alignMask(uint32_t lgSize, uint64_t byteAddress) {
     assert(p_set && "TLBundleParams not set!");
-    assert(lgSize <= 5 && "lgSize exceeds 32 bytes!");
     uint32_t size = 1 << lgSize;
     uint8_t beatBytes = p.data_bit_width / 8;
-    uint32_t unalignedMask = (((uint64_t)1 << size) - 1);
     if (size >= beatBytes) {
-      return unalignedMask;
+      return (((uint64_t)1 << beatBytes) -1);
     }
+    uint32_t unalignedMask = (((uint64_t)1 << size) - 1);
     return alignMask(unalignedMask, lgSize, byteAddress);
   }
 
