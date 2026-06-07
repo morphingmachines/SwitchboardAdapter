@@ -6,7 +6,7 @@ import freechips.rocketchip.diplomacy.AddressSet
 import freechips.rocketchip.tilelink.{TLBundleA, TLBundleD, TLBundleParameters}
 
 object SBConst {
-  val BeatBytes       = 52 // Switchboard payload size
+  val BeatBytes       = 52 // 416 bits Switchboard payload size, refer: https://github.com/zeroasiccorp/switchboard
   val DataWidth       = BeatBytes * 8
   val TLBeatBytes     = math.pow(2, log2Floor(BeatBytes)).toInt
   val TLMaxTransferSz = 2048
@@ -44,11 +44,14 @@ class SwitchboardTLBundleA extends Bundle {
 
   def pack: UInt = {
     val ctrl32 = Cat(corrupt, size, param, opcode)
-    Cat(data, mask, address, source, ctrl32)
+    val v      = Cat(data, mask, address, source, ctrl32)
+    require(v.getWidth <= SBConst.DataWidth)
+    v.pad(SBConst.DataWidth)
   }
 
   def unpack(d: UInt) = {
-    val x = Wire(this.cloneType)
+    require(d.getWidth == SBConst.DataWidth)
+    val x = Wire(new SwitchboardTLBundleA)
     x.opcode  := d(7, 0)
     x.param   := d(15, 8)
     x.size    := d(23, 16)
@@ -61,7 +64,7 @@ class SwitchboardTLBundleA extends Bundle {
   }
 
   def fromTLA(d: TLBundleA) = {
-    val x = Wire(this.cloneType)
+    val x = Wire(new SwitchboardTLBundleA)
     x.opcode  := d.opcode
     x.param   := d.param
     x.size    := d.size
@@ -102,11 +105,14 @@ class SwitchboardTLBundleD extends Bundle {
 
   def pack: UInt = {
     val ctrl32 = Cat(corrupt, size, param, opcode)
-    Cat(data, denied.pad(32), sink, source, ctrl32)
+    val v      = Cat(data, denied.pad(32), sink, source, ctrl32)
+    require(v.getWidth <= SBConst.DataWidth)
+    v.pad(SBConst.DataWidth)
   }
 
   def unpack(d: UInt) = {
-    val x = Wire(this.cloneType)
+    require(d.getWidth == SBConst.DataWidth)
+    val x = Wire(new SwitchboardTLBundleD)
     x.opcode  := d(7, 0)
     x.param   := d(15, 8)
     x.size    := d(23, 16)
@@ -119,7 +125,7 @@ class SwitchboardTLBundleD extends Bundle {
   }
 
   def fromTLD(d: TLBundleD) = {
-    val x = Wire(this.cloneType)
+    val x = Wire(new SwitchboardTLBundleD)
     x.opcode  := d.opcode
     x.param   := d.param
     x.size    := d.size
@@ -161,8 +167,9 @@ class SBIO extends Bundle {
     valid   := x.valid
     x.ready := ready
     data    := (new SwitchboardTLBundleA).fromTLA(x.bits).pack
-    dest    := 0.U
-    last    := 1.U
+    // NOTE: current implementation assumes single-beat and single-destination
+    dest := 0.U
+    last := 1.U
   }
 
   def toTLA: DecoupledIO[TLBundleA] = {
@@ -183,8 +190,9 @@ class SBIO extends Bundle {
     valid   := x.valid
     x.ready := ready
     data    := (new SwitchboardTLBundleD).fromTLD(x.bits).pack
-    dest    := 0.U
-    last    := 1.U
+    // NOTE: current implementation assumes single-beat and single-destination
+    dest := 0.U
+    last := 1.U
   }
 
   def toTLD: DecoupledIO[TLBundleD] = {

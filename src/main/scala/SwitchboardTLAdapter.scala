@@ -4,6 +4,8 @@ import chisel3._
 import chisel3.util._
 import freechips.rocketchip.diplomacy.{AddressSet, IdRange, RegionType, TransferSizes}
 import freechips.rocketchip.tilelink.{
+  TLBundleA,
+  TLBundleD,
   TLClientNode,
   TLManagerNode,
   TLMasterParameters,
@@ -91,16 +93,25 @@ abstract class SwitchboardTLAdapterImp[+L <: SwitchboardTLAdapter](outer: L) ext
     )
   })
 
+  private def validateAChannel(a: TLBundleA): Unit = {
+    require(a.data.getWidth <= SBConst.SBTLBundleParameters.dataBits)
+    require(a.address.getWidth <= SBConst.SBTLBundleParameters.addressBits)
+    require(a.size.getWidth <= SBConst.SBTLBundleParameters.sizeBits)
+    require(a.source.getWidth <= SBConst.SBTLBundleParameters.sourceBits)
+  }
+
+  private def validateDChannel(d: TLBundleD): Unit =
+    require(d.sink.getWidth <= SBConst.SBTLBundleParameters.sinkBits)
+
   (0 until outer.nClientParams.length).foreach { i =>
     val (client_port, _) = outer.clients(i).out(0)
-    val clientABuf       = Module(new Queue(client_port.a.bits.cloneType, 8))
-    val clientDBuf       = Module(new Queue(client_port.d.bits.cloneType, 8))
 
-    require(client_port.a.bits.data.getWidth <= SBConst.SBTLBundleParameters.dataBits)
-    require(client_port.a.bits.address.getWidth <= SBConst.SBTLBundleParameters.addressBits)
-    require(client_port.a.bits.size.getWidth <= SBConst.SBTLBundleParameters.sizeBits)
-    require(client_port.a.bits.source.getWidth <= SBConst.SBTLBundleParameters.sourceBits)
-    require(client_port.d.bits.sink.getWidth <= SBConst.SBTLBundleParameters.sinkBits)
+    // Client side: Outgoing A channel is forwarded to switchboard and incoming D channel is received.
+    validateAChannel(client_port.a.bits)
+    validateDChannel(client_port.d.bits)
+
+    val clientABuf = Module(new Queue(client_port.a.bits.cloneType, 8))
+    val clientDBuf = Module(new Queue(client_port.d.bits.cloneType, 8))
 
     clientABuf.io.enq <> io.client(i).a.toTLA
     io.client(i).d.fromTLD(clientDBuf.io.deq)
@@ -110,11 +121,9 @@ abstract class SwitchboardTLAdapterImp[+L <: SwitchboardTLAdapter](outer: L) ext
 
   (0 until outer.nManagerParams.length).foreach { i =>
     val (manager_port, _) = outer.managers(i).in(0)
-    require(manager_port.a.bits.address.getWidth <= SBConst.SBTLBundleParameters.addressBits)
-    require(manager_port.a.bits.data.getWidth <= SBConst.SBTLBundleParameters.dataBits)
-    require(manager_port.a.bits.size.getWidth <= SBConst.SBTLBundleParameters.sizeBits)
-    require(manager_port.a.bits.source.getWidth <= SBConst.SBTLBundleParameters.sourceBits)
-    require(manager_port.d.bits.sink.getWidth <= SBConst.SBTLBundleParameters.sinkBits)
+    // Manager side: incoming A channel is received from switchboard and outgoing D channel is returned.
+    validateAChannel(manager_port.a.bits)
+    validateDChannel(manager_port.d.bits)
 
     val managerABuf = Module(new Queue(manager_port.a.bits.cloneType, 8))
     val managerDBuf = Module(new Queue(manager_port.d.bits.cloneType, 8))
