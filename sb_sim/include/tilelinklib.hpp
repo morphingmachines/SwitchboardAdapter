@@ -36,7 +36,7 @@ static inline std::string data_to_bytes(const uint8_t *data, int data_width) {
 
 static inline std::string tlA_to_str(const TLMessageA &msg,
                                      const TLBundleParams &p) {
-  std::string result = "TL-A[op=" + get_opcodeA_str(msg.opcode);
+  std::string result = "TL-A[op=" + get_opcodeA_str(static_cast<TLAOpcode>(msg.opcode));
   result += ", param=" + std::to_string(msg.param);
   result += ", size=" + std::to_string(msg.size);
   result += ", source=" + std::to_string(msg.source);
@@ -53,7 +53,7 @@ static inline std::string tlA_to_str(const TLMessageA &msg,
 
 static inline std::string tlD_to_str(const TLMessageD &msg,
                                      const TLBundleParams &p) {
-  std::string result = "TL-D[op=" + get_opcodeD_str(msg.opcode);
+  std::string result = "TL-D[op=" + get_opcodeD_str(static_cast<TLDOpcode>(msg.opcode));
   result += ", param=" + std::to_string(msg.param);
   result += ", size=" + std::to_string(msg.size);
   result += ", source=" + std::to_string(msg.source);
@@ -110,8 +110,8 @@ public:
     msg.source = fromSource;
     if (mask == 0) {
       msg.mask = 0;
-    } else if(lgSize >= 32){ 
-      msg.mask = mask; 
+    } else if (lgSize >= 32) {
+      msg.mask = mask;
     } else {
       msg.mask = alignMask(mask, lgSize, toAddress);
       int i = first_bit_set_u32(msg.mask);
@@ -172,6 +172,7 @@ public:
 
   void accessAck(TLMessageD &msg, uint32_t toSource, uint8_t lgSize,
                  uint32_t denied) {
+    assert(p_set && "TLBundleParams not set!");
     msg.opcode = AccessAck;
     msg.param = 0;
     msg.size = lgSize;
@@ -191,7 +192,7 @@ protected:
     uint32_t size = 1 << lgSize;
     uint8_t beatBytes = p.data_bit_width / 8;
     if (size >= beatBytes) {
-      return (((uint64_t)1 << beatBytes) -1);
+      return (((uint64_t)1 << beatBytes) - 1);
     }
     uint32_t unalignedMask = (((uint64_t)1 << size) - 1);
     return alignMask(unalignedMask, lgSize, byteAddress);
@@ -214,10 +215,10 @@ class ClientTLAgent : public TLAgent {
 public:
   ClientTLAgent(const std::string &uri, size_t capacity = 0, bool fresh = false,
                 double max_rate = -1) {
-
     a_tx.init(uri + "_a.q", capacity, fresh, max_rate);
     d_rx.init(uri + "_d.q", capacity, fresh, max_rate);
     info = uri;
+    // Default params — caller must invoke set_TLBundleParams() before use.
     p = {
         .address_bit_width = 64,
         .source_bit_width = 32,
@@ -260,6 +261,7 @@ public:
                  bool fresh = false, double max_rate = -1) {
     a_rx.init(uri + "_a.q", capacity, fresh, max_rate);
     d_tx.init(uri + "_d.q", capacity, fresh, max_rate);
+    // Default params — caller must invoke set_TLBundleParams() before use.
     p = {.address_bit_width = 64,
          .source_bit_width = 32,
          .sink_bit_width = 32,

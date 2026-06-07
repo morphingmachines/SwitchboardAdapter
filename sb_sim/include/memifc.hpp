@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <mutex>
+#include <vector>
 
 #include <fesvr/memif.h>
 
@@ -18,63 +19,38 @@ public:
   }
 
   void read_chunk(addr_t taddr, size_t nbytes, void *dst) override {
-    size_t bytes_remaining = nbytes;
-    uint8_t *dst_ptr = static_cast<uint8_t *>(dst);
-    addr_t curr_addr = taddr;
     const size_t beat = chunk_align();
-
     assert((taddr & (beat - 1)) == 0 && "addr must be aligned to beat size");
     assert(nbytes >= beat && "Read size below minimum chunk size");
     assert(nbytes <= chunk_max_size() && "Read size exceeds maximum chunk size");
     assert(nbytes % beat == 0 && "Read size must be multiple of chunk_align()");
 
-    while (bytes_remaining > 0) {
-      // Largest naturally-aligned power-of-2 chunk starting at curr_addr
-      size_t chunk = floor_pow2(bytes_remaining);
-      while (curr_addr & (chunk - 1))
-        chunk >>= 1;
-
-      read(curr_addr, chunk, dst_ptr);
-      dst_ptr += chunk;
-      curr_addr += chunk;
-      bytes_remaining -= chunk;
-    }
+    uint8_t *dst_ptr = static_cast<uint8_t *>(dst);
+    for_aligned_chunks(taddr, nbytes, [&](addr_t addr, size_t len) {
+      read(addr, len, dst_ptr);
+      dst_ptr += len;
+    });
   }
 
   void write_chunk(addr_t taddr, size_t nbytes, const void *src) override {
-    size_t bytes_remaining = nbytes;
-    const uint8_t *src_ptr = static_cast<const uint8_t *>(src);
-    addr_t curr_addr = taddr;
     const size_t beat = chunk_align();
-
     assert((taddr & (beat - 1)) == 0 && "addr must be aligned to beat size");
     assert(nbytes >= beat && "Write size below minimum chunk size");
     assert(nbytes <= chunk_max_size() && "Write size exceeds maximum chunk size");
     assert(nbytes % beat == 0 && "Write size must be multiple of chunk_align()");
 
-    while (bytes_remaining > 0) {
-      // Largest naturally-aligned power-of-2 chunk starting at curr_addr
-      size_t chunk = floor_pow2(bytes_remaining);
-      while (curr_addr & (chunk - 1))
-        chunk >>= 1;
-
-      write(curr_addr, chunk, src_ptr);
-      src_ptr += chunk;
-      curr_addr += chunk;
-      bytes_remaining -= chunk;
-    }
+    const uint8_t *src_ptr = static_cast<const uint8_t *>(src);
+    for_aligned_chunks(taddr, nbytes, [&](addr_t addr, size_t len) {
+      write(addr, len, src_ptr);
+      src_ptr += len;
+    });
   }
 
   void clear_chunk(addr_t taddr, size_t nbytes) override {
-    size_t chunk_size = chunk_align();
-    std::vector<uint8_t> zero_data(chunk_size, 0);
-
-    size_t bytes_remaining = nbytes;
-    while (bytes_remaining > 0) {
-      write_chunk(taddr, chunk_size, zero_data.data());
-      taddr += chunk_size;
-      bytes_remaining -= chunk_size;
-    }
+    const size_t beat = chunk_align();
+    const std::vector<uint8_t> zeros(beat, 0);
+    for (size_t off = 0; off < nbytes; off += beat)
+      write_chunk(taddr + off, beat, zeros.data());
   }
 
   size_t chunk_align() override { return (tl_params.data_bit_width / 8); }
@@ -86,15 +62,37 @@ protected:
   TLBundleParams tl_params;
   std::mutex lock_;
 
-  // Largest power-of-2 <= n. Undefined for n == 0.
+  // Largest power-of-2 <= n. Returns 0 for n == 0.
   static size_t floor_pow2(size_t n) {
+    if (n == 0) return 0;
     return size_t(1) << (63 - __builtin_clzll(n));
+  }
+
+  // Walk [addr, addr+nbytes) as naturally-aligned power-of-2 sub-ranges.
+  // Calls fn(sub_addr, sub_len) for each sub-range in order.
+  template <typename Fn>
+  static void for_aligned_chunks(addr_t addr, size_t nbytes, Fn fn) {
+    addr_t curr = addr;
+    size_t remaining = nbytes;
+    while (remaining > 0) {
+      size_t chunk = floor_pow2(remaining);
+      while (curr & (chunk - 1))
+        chunk >>= 1;
+      fn(curr, chunk);
+      curr += chunk;
+      remaining -= chunk;
+    }
+  }
+
+  // Validate that 'len' is power-of-two and 'addr' is aligned to 'len'.
+  static void validate_len_addr(uint64_t addr, size_t len) {
+    assert((len & (len - 1)) == 0 && "len must be power of 2");
+    assert((addr & (len - 1)) == 0 && "addr must be aligned to len");
   }
 
   void read(uint64_t addr, size_t len, void *data) {
     std::lock_guard<std::mutex> guard(lock_);
-    assert((len & (len - 1)) == 0 && "len must be power of 2");
-    assert((addr & (len - 1)) == 0 && "addr must be aligned to len");
+    validate_len_addr(addr, len);
     const size_t beat_bytes = tl_params.data_bit_width / 8;
     assert(len >= beat_bytes && "len must be >= beat size");
     const size_t num_beats = len / beat_bytes;
@@ -115,8 +113,7 @@ protected:
 
   void write(uint64_t addr, size_t len, const void *data) {
     std::lock_guard<std::mutex> guard(lock_);
-    assert((len & (len - 1)) == 0 && "len must be power of 2");
-    assert((addr & (len - 1)) == 0 && "addr must be aligned to len");
+    validate_len_addr(addr, len);
     const size_t beat_bytes = tl_params.data_bit_width / 8;
     assert(len >= beat_bytes && "len must be >= beat size");
     const size_t num_beats = len / beat_bytes;

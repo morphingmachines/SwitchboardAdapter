@@ -14,22 +14,15 @@ enum TLAOpcode {
   Hint = 5,
 };
 
-static inline std::string get_opcodeA_str(int opcode) {
+static inline std::string get_opcodeA_str(TLAOpcode opcode) {
   switch (opcode) {
-  case 0:
-    return "PutFullData";
-  case 1:
-    return "PutPartialData";
-  case 2:
-    return "ArithmeticData";
-  case 3:
-    return "LogicalData";
-  case 4:
-    return "Get";
-  case 5:
-    return "Hint";
-  default:
-    return "Unknown";
+  case PutFullData:    return "PutFullData";
+  case PutPartialData: return "PutPartialData";
+  case ArithmeticData: return "ArithmeticData";
+  case LogicalData:    return "LogicalData";
+  case Get:            return "Get";
+  case Hint:           return "Hint";
+  default:             return "Unknown";
   }
 }
 
@@ -39,32 +32,28 @@ enum TLDOpcode {
   HintAck = 2,
 };
 
-static inline std::string get_opcodeD_str(int opcode) {
+static inline std::string get_opcodeD_str(TLDOpcode opcode) {
   switch (opcode) {
-  case 0:
-    return "AccessAck";
-  case 1:
-    return "AccessAckData";
-  case 2:
-    return "HintAck";
-  default:
-    return "Unknown";
+  case AccessAck:     return "AccessAck";
+  case AccessAckData: return "AccessAckData";
+  case HintAck:       return "HintAck";
+  default:            return "Unknown";
   }
 }
 
 enum TLArithmeticAtomics {
-  MIN = 0,
-  MAX = 1,
-  MINU = 2,
-  MAXU = 3,
-  ADD = 4,
+  TL_MIN  = 0,
+  TL_MAX  = 1,
+  TL_MINU = 2,
+  TL_MAXU = 3,
+  TL_ADD  = 4,
 };
 
 enum TLLogicalAtomics {
-  XOR = 0,
-  OR = 1,
-  AND = 2,
-  SWAP = 3,
+  TL_XOR  = 0,
+  TL_OR   = 1,
+  TL_AND  = 2,
+  TL_SWAP = 3,
 };
 
 enum TLHints {
