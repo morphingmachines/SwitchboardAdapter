@@ -1,0 +1,77 @@
+# clang-tidy config for REDEFINE baremetal C kernels
+#
+# Goals: catch real bugs, enforce consistency, avoid C++ / style noise.
+# Run with: clang-tidy -p compile_commands.json <file>
+
+Checks: >
+  -*,
+  bugprone-integer-division,
+  bugprone-implicit-widening-of-multiplication-result,
+  bugprone-narrowing-conversions,
+  bugprone-signed-char-misuse,
+  bugprone-sizeof-expression,
+  bugprone-suspicious-memset-usage,
+  bugprone-branch-clone,
+  bugprone-macro-parentheses,
+  bugprone-undefined-memory-manipulation,
+  clang-analyzer-core.*,
+  clang-analyzer-deadcode.*,
+  clang-analyzer-security.*,
+  cert-dcl03-c,
+  cert-dcl16-c,
+  cert-exp42-c,
+  cert-flp37-c,
+  cert-int30-c,
+  cert-int31-c,
+  cert-msc30-c,
+  portability-restrict-system-includes,
+  portability-simd-intrinsics,
+  readability-identifier-naming
+
+# Treat these as errors (not just warnings)
+WarningsAsErrors: >
+  bugprone-integer-division,
+  bugprone-sizeof-expression,
+  bugprone-signed-char-misuse,
+  clang-analyzer-core.NullDereference,
+  clang-analyzer-core.UndefinedBinaryOperatorResult,
+  clang-analyzer-security.*
+
+CheckOptions:
+  # snake_case for all C identifiers
+  - key:   readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key:   readability-identifier-naming.VariableCase
+    value: lower_case
+  - key:   readability-identifier-naming.ParameterCase
+    value: lower_case
+  - key:   readability-identifier-naming.MemberCase
+    value: lower_case
+  - key:   readability-identifier-naming.PrivateMemberSuffix
+    value: _
+  # UPPER_CASE for consts, macros and enum constants
+  - key:   readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
+    value: "^.*_H_$"
+  - key:   readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE
+  - key:   readability-identifier-naming.StaticConstantCase
+    value: UPPER_CASE 
+  - key:   readability-identifier-naming.GlobalConstantCase
+    value: UPPER_CASE
+  # PascalCase for types (structs, enums, typedefs)
+  - key:   readability-identifier-naming.TypedefCase
+    value: Leading_upper_snake_case
+  - key:   readability-identifier-naming.StructCase
+    value: Leading_upper_snake_case
+  - key:   readability-identifier-naming.EnumCase
+    value: Leading_upper_snake_case
+  # Allow __double_underscore__ names (compiler/ABI intrinsics)
+  - key:   readability-identifier-naming.FunctionIgnoredRegexp
+    value: "^(__.*__|re_.*|ce_.*)"
+  - key:   readability-identifier-naming.VariableIgnoredRegexp
+    value: "^__.*__$"
+
+# Only report warnings from our own headers; suppress third-party (switchboard, fesvr, etc.)
+HeaderFilterRegex: ".*RedefineIp/sb-fabric-sim/include/.*"
