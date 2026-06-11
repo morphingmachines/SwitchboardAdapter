@@ -1,0 +1,54 @@
+{
+    // Set to your local conda env python, e.g. "~/miniconda3/envs/Switchboard/bin/python"
+    "python.defaultInterpreterPath": "/path/to/your/conda/env/bin/python",
+    "python.analysis.extraPaths": [
+        // NOTE: python.analysis.extraPaths does NOT expand env vars ($VAR or ${env:VAR}).
+        // Copy this file to settings.json and set your local switchboard path below.
+        // Point to the repo root (the dir CONTAINING the switchboard/ package), e.g.:
+        // "/home/you/switchboard"  (NOT "/home/you/switchboard/switchboard")
+        "/path/to/your/switchboard"
+    ],
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true,
+        "editor.rulers": [
+            88,
+            120
+        ]
+    },
+    "python.formatting.provider": "black",
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "editor.formatOnSave": true,
+
+    "editor.defaultFormatter": "ms-vscode.cpptools",
+    "C_Cpp.clang_format_fallbackStyle": "LLVM",
+    "GitCommitPlugin.MaxSubjectCharacters": 50,
+    "GitCommitPlugin.Templates": [
+        {
+            //If applied, this commit will <your subject line here>
+            "templateName": "git-mm",
+            "templateContent": "<icon><space><type>:<space><subject><enter><body><enter><footer>",
+            // Set as default commit template
+            "default": true
+        }
+    ],
+    "[c]": {
+        "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+        "editor.formatOnSave": true
+    },
+    "[cpp]": {
+        "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+        "editor.formatOnSave": true
+    },
+    "[jsonc]": {
+        "editor.defaultFormatter": "vscode.json-language-features",
+        "editor.formatOnSave": true
+    },
+    "[cmake]": {
+        "editor.defaultFormatter": "KylinIdeTeam.cmake-intellisence",
+        "editor.formatOnSave": true
+    }
+}

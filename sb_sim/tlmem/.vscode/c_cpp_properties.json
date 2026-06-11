@@ -4,10 +4,11 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${SBPATH}/switchboard/cpp"
+                "${SBPATH}/switchboard/cpp",
+                "../include",
+                "${env:RISCV}/include"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/c++",
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "linux-clang-x64"
