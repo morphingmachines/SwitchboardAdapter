@@ -1,6 +1,8 @@
-# tlmem example
+# tlmem
 
-Demonstrates TileLink write transactions and ELF loading into a Chisel-generated `TLMem` DUT — a memory device with a single client port and no manager port.
+TileLink write transactions and RISC-V ELF loading into `TLMem` — a memory DUT with 1 client port and 0 manager ports.
+
+Generate RTL before running: `make lazyrtl TARGET=Mem` (from repo root). Requires `$RISCV` env var (RISC-V toolchain root with fesvr).
 
 ## What happens
 
@@ -10,79 +12,34 @@ client.cc                        TLMem DUT
                 ◀──D──  io_client_0_d ◀──
 ```
 
-1. `send_thread` issues 32 `PutFullData` (A-channel) writes — size=2 (4 bytes), addresses `0`, `4`, ..., `124`.
-2. `recv_thread` receives 32 `AccessAck` (D-channel) responses concurrently; asserts `denied == 0`.
-3. Both threads join.
-4. `ClientTLMemIfc` wraps the agent as a FESVR `memif_t`; `load_elf` loads `vecAdd.elf` into the DUT's memory array via TileLink `PutFullData` bursts.
-5. On success prints `PASS!`.
+1. `send_thread` — 32× `PutFullData` writes (size=2, 4 bytes), addresses `0`, `4`, ..., `124`.
+2. `recv_thread` — receives 32 `AccessAck` concurrently; asserts `denied == 0`.
+3. `ClientTLMemIfc` wraps the agent as fesvr `memif_t`; `load_elf` loads `vecAdd.elf` into the DUT.
+4. Prints `PASS!`.
 
-## File overview
+## Files
 
 | File | Role |
 |------|------|
-| `client.cc` | C++ testbench — concurrent send/recv threads, then ELF load via `ClientTLMemIfc` |
-| `build.py` | Orchestrator — builds Verilator sim, cleans queues, runs client + DUT |
-| `rtl_build/testbench.sv` | Auto-generated SV wrapper connecting TL SB ports to `TLMem` |
-| `settings.py` | RTL path constants (`CHISEL_GEN_RTL_DIR`, `TOP_MODULE`, `N_CLIENTS`, `N_MANAGERS`) |
-| `CMakeLists.txt` | CMake-based build targets |
-| `vecAdd.elf` | RISC-V ELF binary loaded into TLMem memory during the test |
+| `client.cc` | Concurrent send/recv threads, then ELF load via `ClientTLMemIfc` |
+| `build.py` | Builds Verilator sim, cleans queues, runs client + DUT |
+| `settings.py` | `CHISEL_GEN_RTL_DIR`, `TOP_MODULE`, `N_CLIENTS`, `N_MANAGERS` |
+| `CMakeLists.txt` | Build targets |
+| `vecAdd.elf` | RISC-V ELF loaded into TLMem during the test |
+
+For [build targets](../README.md#cmake-build-targets), [SV wrapper](../README.md#sv-wrapper), and [IDE setup](../README.md#ide-setup-vs-code) — see [sb_sim/README.md](../README.md).
 
 ## Queue topology
 
-| Queue file | Direction | Description |
-|------------|-----------|-------------|
-| `client_0_a.q` | client → DUT | A-channel requests (writes/reads) |
-| `client_0_d.q` | DUT → client | D-channel responses (acks) |
-
-All queues use 416-bit switchboard packets (TileLink bundle packed width).
-
-## Building and running
-
-Requires the `RISCV` environment variable pointing to the RISC-V toolchain root (used for `fesvr` headers and library).
-
-```sh
-cmake -B build
-cmake --build build --target verilator          # incremental (fast=True)
-cmake --build build --target verilator-rebuild  # force full recompile
-cmake --build build --target clean-extra        # remove sim artifacts
-```
-
-Enable FST waveform tracing:
-
-```sh
-cmake -B build -DTRACE=ON
-cmake --build build --target verilator
-```
-
-## How the SV side works
-
-`testbench.sv` uses switchboard macros from `switchboard.vh`:
-
-- `QUEUE_TO_SB_SIM` — drives `io_client_0_a` from `client_0_a.q`
-- `SB_TO_QUEUE_SIM` — captures `io_client_0_d` into `client_0_d.q`
-
-Queue URIs can be overridden at runtime via plusargs (`+io_client_0_a=<path>`, `+io_client_0_d=<path>`).
-
-## IDE setup (VS Code)
-
-```sh
-cp .vscode/settings.json.template .vscode/settings.json
-```
-
-Edit `.vscode/settings.json` and update two fields:
-
-| Field | Value |
-|-------|-------|
-| `python.defaultInterpreterPath` | Path to Python in your conda env, e.g. `~/miniconda3/envs/Switchboard/bin/python` |
-| `python.analysis.extraPaths` | Path to the switchboard repo root (the dir containing the `switchboard/` package), e.g. `/home/you/switchboard` |
-
-`settings.json` is gitignored — changes stay local.
+| Queue | Direction | Channel |
+|-------|-----------|---------|
+| `client_0_a.q` | client → DUT | A-channel requests |
+| `client_0_d.q` | DUT → client | D-channel responses |
 
 ## Dependencies
 
-- [switchboard](https://github.com/zeroasiccorp/switchboard) installed and on `PATH`
-- Verilator
-- C++17-capable compiler
-- `RISCV` env var — RISC-V toolchain root (provides `fesvr` headers and `libfesvr`)
-- `sb_sim/include/tilelinklib.hpp` and `memifc.hpp` (in this repo, resolved via `../include`)
-- Chisel-generated RTL under `switchboard.TLMem.None/chisel_gen_rtl/`
+- [switchboard](https://github.com/zeroasiccorp/switchboard) on `PATH`
+- Verilator, C++17 compiler
+- `$RISCV` — fesvr headers + `libfesvr`
+- [`tilelinklib.hpp`](../include/tilelinklib.hpp), [`memifc.hpp`](../include/memifc.hpp)
+- RTL under `switchboard.TLMem.None/chisel_gen_rtl/`
