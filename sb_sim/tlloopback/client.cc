@@ -1,10 +1,5 @@
-// Copyright (c) 2024 Zero ASIC Corporation
-// This code is licensed under Apache License 2.0 (see LICENSE for details)
-
-#include "switchboard.hpp"
 #include "tilelinklib.hpp"
 
-#include <iostream>
 #include <thread>
 #define NBYTES 32
 

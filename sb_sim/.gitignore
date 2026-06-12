@@ -1,3 +1,4 @@
 **/*.q
 **/*.vcd
 **/__pycache__
+docs/

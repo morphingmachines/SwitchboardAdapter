@@ -1,13 +1,8 @@
-// Copyright (c) 2024 Zero ASIC Corporation
-// This code is licensed under Apache License 2.0 (see LICENSE for details)
-
 #include "fesvr/memif.h"
 
 #include "fesvr/elfloader.h"
 #include "memifc.hpp"
-#include "switchboard.hpp"
 #include "tilelinklib.hpp"
-#include <iostream>
 #include <thread>
 #define NBYTES 32
 
@@ -26,6 +21,7 @@ void send_thread(ClientTLAgent *client) {
             tl_a.data[i] = i + offset * 4;
         }
 
+        client->print_a(tl_a);             
         // send packet
         client->send_a(tl_a);
     }
@@ -37,6 +33,7 @@ void recv_thread(ClientTLAgent *client) {
         client->recv_d(tl_d);
         assert(tl_d.opcode == AccessAck);
         assert(tl_d.denied == 0);
+        client->print_d(tl_d);
     }
 }
 
