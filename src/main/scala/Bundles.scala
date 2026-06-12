@@ -1,17 +1,18 @@
 package switchboard
 
 import chisel3._
+import chisel3.reflect.DataMirror
 import chisel3.util._
 import freechips.rocketchip.diplomacy.AddressSet
 import freechips.rocketchip.tilelink.{TLBundleA, TLBundleD, TLBundleParameters}
 
 object SBConst {
-  val BeatBytes       = 52 // 416 bits Switchboard payload size, refer: https://github.com/zeroasiccorp/switchboard
-  val DataWidth       = BeatBytes * 8
-  val TLBeatBytes     = math.pow(2, log2Floor(BeatBytes)).toInt
-  val TLMaxTransferSz = 2048
+  val DataWidth       = 416 // 416 bits Switchboard payload size, refer: https://github.com/zeroasiccorp/switchboard
+  val TLBeatBytes     = math.pow(2, log2Floor(DataWidth / 8)).toInt
+  val TLMaxTransferSz = 4096
 
-  /** Maximum possible value for a TileLink interconnect parameter.
+  /** Maximum allowed value for a TileLink interconnect parameter. SB adapter for TileLink converts ant TL interface
+    * fields to these sizes.
     */
   val SBTLBundleParameters = TLBundleParameters(
     addressBits = 64,
@@ -27,9 +28,9 @@ object SBConst {
 }
 
 class SwitchboardIfc extends Bundle {
-  val data = Output(UInt(SBConst.DataWidth.W))
-  val dest = Output(UInt(32.W))
-  val last = Output(Bool())
+  val data = UInt(SBConst.DataWidth.W)
+  val dest = UInt(32.W)
+  val last = Bool()
 }
 
 class SwitchboardTLBundleA extends Bundle {
@@ -105,7 +106,7 @@ class SwitchboardTLBundleD extends Bundle {
 
   def pack: UInt = {
     val ctrl32 = Cat(corrupt, size, param, opcode)
-    val v      = Cat(data, denied.pad(32), sink, source, ctrl32)
+    val v      = Cat(data, denied, sink, source, ctrl32)
     require(v.getWidth <= SBConst.DataWidth)
     v.pad(SBConst.DataWidth)
   }
@@ -120,7 +121,7 @@ class SwitchboardTLBundleD extends Bundle {
     x.source  := d(63, 32)
     x.sink    := d(95, 64)
     x.denied  := d(103, 96)
-    x.data    := d(383, 128)
+    x.data    := d(359, 104)
     x
   }
 
@@ -159,6 +160,25 @@ class SBIO extends Bundle {
   val last  = Output(Bool())
   val valid = Output(Bool())
   val ready = Input(Bool())
+
+  def connect_recv(x: DecoupledIO[UInt]) = {
+    require(x.bits.getWidth <= SBConst.DataWidth)
+    require(DataMirror.directionOf(x.bits) == ActualDirection.Input)
+    data    := x.bits.pad(SBConst.DataWidth)
+    valid   := x.valid
+    x.ready := ready
+    // NOTE: current implementation assumes single-beat and single-destination
+    last := 1.U
+    dest := 0.U
+  }
+
+  def connect_send(x: DecoupledIO[UInt]) = {
+    require(x.bits.getWidth <= SBConst.DataWidth)
+    require(DataMirror.directionOf(x.bits) == ActualDirection.Output)
+    x.valid := valid
+    x.bits  := data.take(x.bits.getWidth)
+    ready   := x.ready
+  }
 
   def fromTLA(x: DecoupledIO[TLBundleA]) = {
     // when(x.fire) {

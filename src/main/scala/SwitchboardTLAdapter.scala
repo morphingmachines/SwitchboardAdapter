@@ -32,6 +32,7 @@ abstract class SwitchboardTLAdapter(implicit p: Parameters) extends LazyModule {
   lazy val managers = nManagerParams.zipWithIndex.map { case (i, index) =>
     require(i.maxXferBytes <= SBConst.TLMaxTransferSz)
     require(i.beatBytes <= SBConst.TLBeatBytes)
+    require((i.base + i.size - 1).bitLength <= SBConst.SBTLBundleParameters.addressBits)
     TLManagerNode(
       Seq(
         TLSlavePortParameters.v1(
@@ -43,6 +44,8 @@ abstract class SwitchboardTLAdapter(implicit p: Parameters) extends LazyModule {
               supportsPutFull = TransferSizes(1, i.maxXferBytes),
               supportsPutPartial = TransferSizes(1, i.maxXferBytes),
               supportsGet = TransferSizes(1, i.maxXferBytes),
+              supportsArithmetic = if (i.hasAMO) TransferSizes(1, i.beatBytes) else TransferSizes.none,
+              supportsLogical = if (i.hasAMO) TransferSizes(1, i.beatBytes) else TransferSizes.none,
               mayDenyGet = false,
               mayDenyPut = false,
             ),
