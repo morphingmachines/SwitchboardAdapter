@@ -141,7 +141,7 @@ static inline std::string tlD_to_str(const TLMessageD &msg,
  */
 class TLAgent {
 public:
-  TLAgent() : p_set(false), info("") {}
+  TLAgent() : info(""), p_set(false) {}
 
   /**
    * @brief Configure bundle parameters for a TL-UL (single-beat) link.
@@ -218,7 +218,7 @@ public:
                   uint8_t lgSize, uint32_t mask, const uint8_t *data) {
     assert(p_set && "TLBundleParams not set!");
     assert(lgSize <= 12 && "lgSize exceeds 4096 bytes!");
-    assert((1 << lgSize) <= p.max_transfer_bytes &&
+    assert((1u << lgSize) <= p.max_transfer_bytes &&
            "lgSize exceeds max transfer bytes!");
     int size = 1 << lgSize;
     msg.opcode = PutPartialData;
@@ -228,7 +228,7 @@ public:
     msg.source = fromSource;
     if (mask == 0) {
       msg.mask = 0;
-    } else if ((1 << lgSize) >= (p.data_bit_width / 8)) {
+    } else if ((1u << lgSize) >= (p.data_bit_width / 8)) {
       msg.mask = mask;
       memcpy(&msg.data[0], data, p.data_bit_width / 8);
     } else {
@@ -256,7 +256,7 @@ public:
            uint8_t lgSize, const uint8_t *data) {
     assert(p_set && "TLBundleParams not set!");
     assert(lgSize <= 12 && "lgSize exceeds 4096 bytes!");
-    assert((1 << lgSize) <= p.max_transfer_bytes &&
+    assert((1u << lgSize) <= p.max_transfer_bytes &&
            "lgSize exceeds max transfer bytes!");
     int beat_bytes = p.data_bit_width / 8;
     msg.opcode = PutFullData;
@@ -286,7 +286,7 @@ public:
            uint8_t lgSize) {
     assert(p_set && "TLBundleParams not set!");
     assert(lgSize <= 12 && "lgSize exceeds 4096 bytes!");
-    assert((1 << lgSize) <= p.max_transfer_bytes &&
+    assert((1u << lgSize) <= p.max_transfer_bytes &&
            "lgSize exceeds max transfer bytes!");
     msg.opcode = Get;
     msg.param = 0;
@@ -313,7 +313,7 @@ public:
                      const uint8_t *data, uint32_t denied) {
     assert(p_set && "TLBundleParams not set!");
     assert(lgSize <= 12 && "lgSize exceeds 4096 bytes!");
-    assert((1 << lgSize) <= p.max_transfer_bytes &&
+    assert((1u << lgSize) <= p.max_transfer_bytes &&
            "lgSize exceeds max transfer bytes!");
     msg.opcode = AccessAckData;
     msg.param = 0;

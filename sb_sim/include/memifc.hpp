@@ -46,7 +46,6 @@ public:
    */
   ClientTLMemIfc(ClientTLAgent &agent) : tl_agent(agent) {
     tl_params = agent.get_TLBundleParams();
-    zeros_.assign(tl_params.data_bit_width / 8, 0);
   }
 
   /**
@@ -65,7 +64,8 @@ public:
     const size_t beat = chunk_align();
     assert((taddr & (beat - 1)) == 0 && "addr must be aligned to beat size");
     assert(nbytes >= beat && "Read size below minimum chunk size");
-    assert(nbytes <= chunk_max_size() && "Read size exceeds maximum chunk size");
+    assert(nbytes <= chunk_max_size() &&
+           "Read size exceeds maximum chunk size");
     assert(nbytes % beat == 0 && "Read size must be multiple of chunk_align()");
 
     uint8_t *dst_ptr = static_cast<uint8_t *>(dst);
@@ -91,8 +91,10 @@ public:
     const size_t beat = chunk_align();
     assert((taddr & (beat - 1)) == 0 && "addr must be aligned to beat size");
     assert(nbytes >= beat && "Write size below minimum chunk size");
-    assert(nbytes <= chunk_max_size() && "Write size exceeds maximum chunk size");
-    assert(nbytes % beat == 0 && "Write size must be multiple of chunk_align()");
+    assert(nbytes <= chunk_max_size() &&
+           "Write size exceeds maximum chunk size");
+    assert(nbytes % beat == 0 &&
+           "Write size must be multiple of chunk_align()");
 
     const uint8_t *src_ptr = static_cast<const uint8_t *>(src);
     for_aligned_chunks(taddr, nbytes, [&](addr_t addr, size_t len) {
@@ -110,9 +112,9 @@ public:
    * @param nbytes Byte count. Must be a multiple of chunk_align().
    */
   void clear_chunk(addr_t taddr, size_t nbytes) override {
-    const size_t beat = chunk_align();
-    for (size_t off = 0; off < nbytes; off += beat)
-      write_chunk(taddr + off, beat, zeros_.data());
+    std::vector<uint8_t> zeros_;
+    zeros_.resize(nbytes, 0);
+    write_chunk(taddr, nbytes, zeros_.data());
   }
 
   /// @brief Returns the minimum transfer granularity in bytes (one TL beat).
@@ -122,12 +124,11 @@ public:
   size_t chunk_max_size() override { return (tl_params.max_transfer_bytes); }
 
 protected:
-  ClientTLAgent &tl_agent; ///< Underlying TL agent (not owned).
+  ClientTLAgent &tl_agent;  ///< Underlying TL agent (not owned).
   TLBundleParams tl_params; ///< Cached TL bundle parameters.
 
 private:
   std::mutex lock_;
-  std::vector<uint8_t> zeros_; ///< Pre-allocated zero buffer (one beat wide).
 
   /**
    * @brief Returns the largest power-of-2 ≤ @p n.
@@ -147,7 +148,8 @@ private:
    *
    * @param addr   Start address.
    * @param nbytes Total byte count (> 0).
-   * @param fn     Callable with signature `void(addr_t sub_addr, size_t sub_len)`.
+   * @param fn     Callable with signature `void(addr_t sub_addr, size_t
+   * sub_len)`.
    */
   template <typename Fn>
   static void for_aligned_chunks(addr_t addr, size_t nbytes, Fn fn) {
@@ -172,7 +174,8 @@ private:
   }
 
   /**
-   * @brief Issue a TL Get for [@p addr, @p addr + @p len) and collect response beats.
+   * @brief Issue a TL Get for [@p addr, @p addr + @p len) and collect response
+   * beats.
    *
    * Sends one A-channel Get, then receives @p len / beat_bytes AccessAckData
    * beats and copies data into @p data.
@@ -196,7 +199,8 @@ private:
     TLMessageD tl_d;
     for (size_t i = 0; i < num_beats; i++) {
       tl_agent.recv_d(tl_d);
-      assert(tl_d.opcode == AccessAckData && "read: unexpected D-channel opcode");
+      assert(tl_d.opcode == AccessAckData &&
+             "read: unexpected D-channel opcode");
       assert(tl_d.denied == 0 && "read denied");
       memcpy(dst + i * beat_bytes, tl_d.data, beat_bytes);
     }
@@ -234,6 +238,5 @@ private:
     assert(tl_d.denied == 0 && "write denied");
     tl_agent.print_d(tl_d); // Debug print
   }
-
 };
 #endif // __TL_MEMIFC_HPP__

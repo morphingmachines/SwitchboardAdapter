@@ -1,7 +1,7 @@
 {
     "metals.millScript": "./../playground/mill",
     "files.watcherExclude": {
-        "**/target": true
+        "**/target/**": true
     },
 
 }
