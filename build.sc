@@ -131,7 +131,7 @@ object chipyardTapeout extends playground_build.CommonModule with SbtModule {
 
 object emitrtl extends playground_build.CommonModule with SbtModule {
   override def millSourcePath = os.pwd / os.up / "playground" / "dependencies" / "emitrtl"
-
+  override def ivyDeps = T(super.ivyDeps() ++ Agg(playground_build.ivys.scalatest))
   override def moduleDeps = super.moduleDeps ++ Seq(myrocketchip, chipyardAnnotations, chipyardTapeout)
 }
 

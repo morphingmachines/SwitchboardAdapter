@@ -112,9 +112,16 @@ public:
    * @param nbytes Byte count. Must be a multiple of chunk_align().
    */
   void clear_chunk(addr_t taddr, size_t nbytes) override {
-    std::vector<uint8_t> zeros_;
-    zeros_.resize(nbytes, 0);
-    write_chunk(taddr, nbytes, zeros_.data());
+    const size_t max_chunk = chunk_max_size();
+    std::vector<uint8_t> zeros_(max_chunk, 0);
+    addr_t curr = taddr;
+    size_t remaining = nbytes;
+    while (remaining > 0) {
+      size_t len = std::min(remaining, max_chunk);
+      write_chunk(curr, len, zeros_.data());
+      curr += len;
+      remaining -= len;
+    }
   }
 
   /// @brief Returns the minimum transfer granularity in bytes (one TL beat).
@@ -228,7 +235,7 @@ private:
     TLMessageA tl_a;
     for (size_t i = 0; i < num_beats; i++) {
       tl_agent.put(tl_a, 0, addr, lg_size, src + i * beat_bytes);
-      //tl_agent.print_a(tl_a); // Debug print
+      // tl_agent.print_a(tl_a); // Debug print
       tl_agent.send_a(tl_a);
     }
 
@@ -236,7 +243,7 @@ private:
     tl_agent.recv_d(tl_d);
     assert(tl_d.opcode == AccessAck && "write: unexpected D-channel opcode");
     assert(tl_d.denied == 0 && "write denied");
-    //tl_agent.print_d(tl_d); // Debug print
+    // tl_agent.print_d(tl_d); // Debug print
   }
 };
 #endif // __TL_MEMIFC_HPP__
