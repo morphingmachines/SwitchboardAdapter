@@ -8,12 +8,27 @@ import argparse
 import sys
 from pathlib import Path
 
-from switchboard import SbDut, delete_queues, binary_run
+from siliconcompiler import Design
+from switchboard import SbDut, binary_run
 
 PROJ_DIR = Path(__file__).resolve().parent.parent.parent
 THIS_DIR = Path(__file__).resolve().parent
 
-HDL_EXTS = {".v", ".sv", ".vh", ".svh"}
+HDL_EXTS              = {".v", ".sv", ".vh", ".svh"}
+SB_DATA_WIDTH         = 256
+BUILD_DIR             = "rtl_build"
+SPLIT_SIZE            = 20000
+VERILATOR_WARNINGS_OFF = ["WIDTHEXPAND", "CASEINCOMPLETE", "WIDTHTRUNC", "TIMESCALEMOD", "PINMISSING"]
+VERILATOR_CFLAGS = [
+    "-CFLAGS", "-O1",
+    "-CFLAGS", "-mcmodel=large",
+    "--output-split",        str(SPLIT_SIZE),
+    "--output-split-cfuncs", str(SPLIT_SIZE),
+]
+
+
+def _vc_add(dut: SbDut, key: str, value) -> None:
+    dut.add("tool", "verilator", "task", "compile", key, value)
 
 
 def chisel_generated_sources_filelist(topModule_name):
@@ -31,7 +46,7 @@ def chisel_generated_sources_filelist(topModule_name):
             if not name:
                 continue
             abs_path = src_dir / name
-            if Path(name).suffix in HDL_EXTS:
+            if abs_path.suffix in HDL_EXTS:
                 out.write(str(abs_path) + "\n")
             else:
                 non_hdl.append(str(abs_path))
@@ -48,17 +63,21 @@ def main(
     clock = [dict(name="clock")]
 
     interfaces = {
-        "io_in": dict(type="sb", dw=256, uri="in_port.q", direction="input"),
-        "io_out": dict(type="sb", dw=256, uri="out_port.q", direction="output"),
+        "io_in":  dict(type="sb", dw=SB_DATA_WIDTH, uri="in_port.q",  direction="input"),
+        "io_out": dict(type="sb", dw=SB_DATA_WIDTH, uri="out_port.q", direction="output"),
     }
 
     os.environ.setdefault("CXX", "ccache g++")
     os.environ.setdefault("CC", "ccache gcc")
 
-    n_threads = max(1, min(32, (os.cpu_count() or 8) - 4))
+    n_threads = max(1, min(32, (os.cpu_count() or 1) - 4))
+
+    abs_filelist, non_hdl_srcs = chisel_generated_sources_filelist(rtl_dir)
+    design = Design(topModule_name)
+    design.set_topmodule(topModule_name, fileset="verilator")
 
     dut = SbDut(
-        topModule_name,
+        design,
         autowrap=True,
         cmdline=True,
         trace=trace,
@@ -66,58 +85,24 @@ def main(
         interfaces=interfaces,
         resets=reset,
         clocks=clock,
-        builddir="rtl_build",
+        builddir=BUILD_DIR,
         threads=n_threads,
     )
 
-    dut.add(
-        "tool",
-        "verilator",
-        "task",
-        "compile",
-        "warningoff",
-        ["WIDTHEXPAND", "CASEINCOMPLETE", "WIDTHTRUNC", "TIMESCALEMOD"],
-    )
+    _vc_add(dut, "warningoff", VERILATOR_WARNINGS_OFF)
+    _vc_add(dut, "option",     VERILATOR_CFLAGS)
+    dut.set("tool", "verilator", "task", "compile", "var", "mode", "cc")
 
     if trace:
-        dut.add(
-            "tool",
-            "verilator",
-            "task",
-            "compile",
-            "option",
-            ["--trace-underscore"],
-        )
+        _vc_add(dut, "option", ["--trace-underscore"])
 
-    dut.add(
-        "tool",
-        "verilator",
-        "task",
-        "compile",
-        "option",
-        [
-            "-CFLAGS",
-            "-O1",
-            "-CFLAGS",
-            "-mcmodel=large",
-            "--output-split",
-            "20000",
-            "--output-split-cfuncs",
-            "20000",
-        ],
-    )
-
-    dut.add("tool", "verilator", "task", "compile", "var", "mode", "cc")
-
-    abs_filelist, non_hdl_srcs = chisel_generated_sources_filelist(rtl_dir)
-    dut.add("tool", "verilator", "task", "compile", "option", ["-f", abs_filelist])
-
+    _vc_add(dut, "option", ["-f", abs_filelist])
     for src in non_hdl_srcs:
-        dut.input(src)
+        _vc_add(dut, "option", [src])
 
     dut.build(fast=not rebuild)
 
-    delete_queues([v["uri"] for v in interfaces.values() if "uri" in v])
+    dut.remove_queues_on_exit()
 
     # start client and chip
     # this order yields a smaller waveform file
@@ -126,7 +111,8 @@ def main(
     dut.simulate()
 
     retcode = client.wait()
-    assert retcode == 0
+    if retcode != 0:
+        raise RuntimeError(f"client exited with code {retcode}")
 
 
 if __name__ == "__main__":
