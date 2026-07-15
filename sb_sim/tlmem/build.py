@@ -53,7 +53,7 @@ def chisel_generated_sources_filelist(topModule_name):
     return str(abs_filelist), non_hdl
 
 
-def make_interfaces(n_clients=1, n_managers=0):
+def make_interfaces(n_clients=0, n_managers=0):
     interfaces = {}
     for i in range(n_clients):
         interfaces[f"io_client_{i}_a"] = dict(type="sb", dw=SB_DATA_WIDTH, uri=f"client_{i}_a.q", direction="input")

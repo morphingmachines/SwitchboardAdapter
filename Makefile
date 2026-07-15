@@ -18,5 +18,5 @@ lazyrtl:check-firtool ## Generates Verilog code from Chisel sources (output to .
 check: test
 .PHONY: test
 test:check-firtool ## Run Chisel tests
-	$(MILL) $(project).test.testOnly $(project).serdes.TestSerDesLoopBack
+	$(MILL) $(project).test
 	@echo "If using WriteVcdAnnotation in your tests, the VCD files are generated in ./test_run_dir/testname directories."

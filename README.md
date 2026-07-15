@@ -68,7 +68,7 @@ scala> :load inConsole.scala
 `inConsole.scala` loads the `TLMem` module. Query its bundle parameters:
 
 ```
-scala> dut.ram.node.in(0)._2.bundle
+scala> dut.ram0.node.in(0)._2.bundle
 val res1: freechips.rocketchip.tilelink.TLBundleParameters =
   TLBundleParameters(16,32,4,1,2,List(),List(),List(),false)
 ```

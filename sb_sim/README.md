@@ -35,7 +35,7 @@ TL-A/D opcode enums (`TLAOpcode`, `TLDOpcode`), atomic op enums, packed wire-for
 
 | Example | Chisel DUT | Description |
 |---------|-----------|-------------|
-| [minimal](minimal/README.md) | `Minimal` | Raw 256-bit SB packet exchange |
+| [minimal](minimal/README.md) | `Minimal` | Raw 256-bit SB packet exchange (no TL) |
 | [tlloopback](tlloopback/README.md) | `TLLoopback` | TL-A/D loopback, 1 client + 1 manager |
 | [tlmem](tlmem/README.md) | `TLMem` | TL writes + ELF load via fesvr |
 
