@@ -111,6 +111,9 @@ def main(rtl_dir, topModule_name, n_clients=1, n_managers=0, trace=False, rebuil
 
     if trace:
         _vc_add(dut, "option", ["--trace-underscore"])
+        _vc_add(dut, "option", ["-DSB_TRACE"])
+        if dut.trace_type == "fst":
+            _vc_add(dut, "option", ["-DSB_TRACE_FST"])
 
     _vc_add(dut, "option", ["-f", abs_filelist])
     for src in non_hdl_srcs:
