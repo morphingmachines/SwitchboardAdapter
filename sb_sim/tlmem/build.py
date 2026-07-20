@@ -64,6 +64,19 @@ def make_interfaces(n_clients=0, n_managers=0):
     return interfaces
 
 
+def _find_existing_sim(build_dir: Path):
+    """Return path to an already-compiled verilator binary, or None.
+
+    SbDut.build(fast=True) has a bug when autowrap=True: its fast path calls
+    find_sim() before set_design(AutowrapDesign), so it searches the original
+    design's build directory (which never contains the binary) instead of the
+    AutowrapDesign subdirectory.  We work around this by locating the binary
+    ourselves via a glob and returning it directly.
+    """
+    hits = list(build_dir.glob("**/*.vexe"))
+    return str(hits[0]) if hits else None
+
+
 def main(rtl_dir, topModule_name, n_clients=1, n_managers=0, trace=False, rebuild=False):
     reset = [dict(name="reset", delay=0)]
     clock = [dict(name="clock")]
@@ -103,7 +116,14 @@ def main(rtl_dir, topModule_name, n_clients=1, n_managers=0, trace=False, rebuil
     for src in non_hdl_srcs:
         _vc_add(dut, "option", [src])
 
-    dut.build(fast=not rebuild)
+    build_dir = Path(BUILD_DIR).resolve()
+    existing_sim = None if rebuild else _find_existing_sim(build_dir)
+    if existing_sim is not None:
+        # Skip compilation; patch build() so simulate()'s internal call also
+        # returns the cached binary without rebuilding.
+        dut.build = lambda *a, **kw: existing_sim
+    else:
+        dut.build(fast=False)
 
     dut.remove_queues_on_exit()
 
