@@ -20,7 +20,8 @@ BUILD_DIR             = "rtl_build"
 SPLIT_SIZE            = 20000
 VERILATOR_WARNINGS_OFF = ["WIDTHEXPAND", "CASEINCOMPLETE", "WIDTHTRUNC", "TIMESCALEMOD", "PINMISSING"]
 VERILATOR_CFLAGS = [
-    "-CFLAGS", "-O1",
+    "-CFLAGS", "-O3",
+    "-CFLAGS", "-march=native",
     "-CFLAGS", "-mcmodel=large",
     "--output-split",        str(SPLIT_SIZE),
     "--output-split-cfuncs", str(SPLIT_SIZE),
@@ -71,6 +72,7 @@ def main(
     topModule_name,
     trace=False,
     rebuild=False,
+    debug=False,
 ):
     reset = [dict(name="reset", delay=0)]
     clock = [dict(name="clock")]
@@ -83,7 +85,8 @@ def main(
     os.environ.setdefault("CXX", "ccache g++")
     os.environ.setdefault("CC", "ccache gcc")
 
-    n_threads = max(1, min(32, (os.cpu_count() or 1) - 4))
+    n_build_threads = max(1, min(32, (os.cpu_count() or 1) - 4))
+    n_sim_threads   = max(1, min(8,  (os.cpu_count() or 1) // 2))
 
     abs_filelist, non_hdl_srcs = chisel_generated_sources_filelist(rtl_dir)
     design = Design(topModule_name)
@@ -99,11 +102,17 @@ def main(
         resets=reset,
         clocks=clock,
         builddir=BUILD_DIR,
-        threads=n_threads,
     )
 
     _vc_add(dut, "warningoff", VERILATOR_WARNINGS_OFF)
     _vc_add(dut, "option",     VERILATOR_CFLAGS)
+    _vc_add(dut, "option",     ["-O3"])
+    _vc_add(dut, "option",     ["--threads", str(n_sim_threads)])
+    _vc_add(dut, "option",     ["--threads-dpi", "all"])
+    if not debug:
+        _vc_add(dut, "option", ["--x-assign", "fast"])
+        _vc_add(dut, "option", ["--noassert"])
+    dut.set("tool", "verilator", "task", "compile", "threads", n_build_threads)
     dut.set("tool", "verilator", "task", "compile", "var", "mode", "cc")
 
     if trace:
@@ -150,6 +159,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Force full rebuild (skip incremental cache)",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Debug mode: enable X-propagation and assertions (disables --x-assign fast / --noassert)",
+    )
     args, remaining = parser.parse_known_args()
     sys.argv = [sys.argv[0]] + remaining
 
@@ -158,4 +172,5 @@ if __name__ == "__main__":
         TOP_MODULE,
         trace=args.trace,
         rebuild=args.rebuild,
+        debug=args.debug,
     )

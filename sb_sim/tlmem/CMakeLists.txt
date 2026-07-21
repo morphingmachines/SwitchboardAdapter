@@ -42,9 +42,13 @@ target_link_libraries(client PRIVATE fesvr)
 # ---------------------------------------------------------------------------
 
 option(TRACE "Enable FST waveform tracing" OFF)
+option(DEBUG "Enable debug mode (X-propagation + assertions, disables perf flags)" OFF)
 
 # Shared commands used by both verilator targets.
-set(BUILD_PY "${CMAKE_CURRENT_SOURCE_DIR}/build.py" $<$<BOOL:${TRACE}>:--trace>)
+set(BUILD_PY "${CMAKE_CURRENT_SOURCE_DIR}/build.py"
+    $<$<BOOL:${TRACE}>:--trace>
+    $<$<BOOL:${DEBUG}>:--debug>
+)
 
 # verilator: incremental — skips unchanged RTL (fast=True in build.py).
 add_custom_target(verilator
