@@ -108,7 +108,7 @@ static inline std::string tlA_to_str(const TLMessageA &msg,
   char addr_buf[32];
   snprintf(addr_buf, sizeof(addr_buf), ", addr=0x%lx", msg.address);
   result += addr_buf;
-  char mask_buf[16];
+  char mask_buf[20];
   snprintf(mask_buf, sizeof(mask_buf), ", mask=0x%x", msg.mask);
   result += mask_buf;
   result += ", data=" + data_to_bytes(msg.data, p.data_bit_width) + "]";
