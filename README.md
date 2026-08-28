@@ -21,6 +21,9 @@ SwitchboardTLAdapter/
 │   ├── minimal/                   # Simulation example: raw packet exchange
 │   ├── tlloopback/                # Simulation example: TL loopback
 │   └── tlmem/                     # Simulation example: TL memory + ELF load
+├── sim_build/
+│   ├── sim_build.py                # Shared Verilator/SbDut build logic (Python)
+│   └── README.md                   # Usage, n_clients/n_managers, dependency versions
 ├── doc/
 │   └── dependencies.md            # Verilator, switchboard, conda install guide
 ├── build.sc                       # Mill build definition
@@ -101,6 +104,15 @@ cd sb_sim/tlmem && cmake -B build && cmake --build build --target verilator
 ```
 
 See [sb_sim/README.md](./sb_sim/README.md) for details on the C++ TileLink agent library (`tilelinklib`, `memifc`), the 416-bit pack format, and how to adapt these examples for your own DUT.
+
+## Building your own DUT's simulation
+
+The `minimal`/`tlloopback`/`tlmem` examples' `build.py` are thin wrappers
+around [sim_build/README.md](./sim_build/README.md) -- the shared
+Verilator/SbDut build logic (flag assembly, interface wiring, an SbDut bug
+workaround) that any project autowrapping its RTL with SbDut needs. If your
+own project drives its DUT the same way, reuse `sim_build.py` directly
+instead of writing this plumbing again.
 
 ## Chisel resources
 

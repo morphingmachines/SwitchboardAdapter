@@ -31,6 +31,16 @@ TL-A/D opcode enums (`TLAOpcode`, `TLDOpcode`), atomic op enums, packed wire-for
 
 **`ClientTLMemIfc`** implements fesvr `chunked_memif_t` over `ClientTLAgent`. Splits bulk reads/writes into naturally-aligned power-of-2 TL transactions. Use with fesvr `load_elf`.
 
+## Python build logic
+
+Each example's `build.py` is a thin wrapper around
+[sim_build](../sim_build/README.md) -- the shared Verilator/SbDut build logic
+(flag assembly, interface wiring, an SbDut bug workaround) common to any
+project that autowraps its RTL with SbDut. `minimal`, `tlloopback`, and
+`tlmem` each keep only their own CLI parsing and testbench-binary invocation
+in `build.py`; see `sim_build`'s README for the pieces they share and how to
+reuse them in your own project.
+
 ## Examples
 
 | Example | Chisel DUT | Description |
