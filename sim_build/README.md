@@ -66,6 +66,18 @@ Your own `build.py` keeps whatever CLI parsing and testbench-binary
 invocation are specific to your project; `sim_build` covers everything that
 is the same for any consumer.
 
+`BUILD_DIR` (`"rtl_build"`) is relative, so by default the cached Verilator
+build lands in whatever directory `build.py` is run from. To keep one cached
+build no matter the cwd, anchor it yourself and pass the same path to both
+calls:
+
+```python
+build_dir = Path(__file__).resolve().parent / sim_build.BUILD_DIR
+dut = sim_build.make_dut(design, interfaces, trace, builddir=build_dir)
+...
+sim_build.build_or_reuse(dut, build_dir, rebuild)
+```
+
 `make_dut` takes a plain SbDut `interfaces` dict, not `n_clients`/`n_managers`
 directly -- `make_interfaces()` is the TileLink-specific helper that builds
 one. A design that doesn't speak TileLink (e.g. one exposing raw Switchboard

@@ -186,10 +186,15 @@ def thread_counts():
     return n_build_threads, n_sim_threads
 
 
-def make_dut(design: Design, interfaces: dict, trace: bool) -> SbDut:
+def make_dut(design: Design, interfaces: dict, trace: bool, builddir=BUILD_DIR) -> SbDut:
     """interfaces is an SbDut interfaces dict -- build one with make_interfaces()
     for a TileLink client/manager design, or your own for anything else (e.g. a
-    design exposing raw Switchboard ports instead of TileLink)."""
+    design exposing raw Switchboard ports instead of TileLink).
+
+    builddir defaults to BUILD_DIR, which is relative and so resolves against
+    the cwd. Pass an absolute path to keep one cached build regardless of where
+    the consumer's build.py is invoked from (and pass the same path to
+    build_or_reuse)."""
     return SbDut(
         design,
         autowrap=True,
@@ -199,5 +204,5 @@ def make_dut(design: Design, interfaces: dict, trace: bool) -> SbDut:
         interfaces=interfaces,
         resets=[dict(name="reset", delay=0)],
         clocks=[dict(name="clock")],
-        builddir=BUILD_DIR,
+        builddir=str(builddir),
     )
