@@ -1,92 +1,105 @@
 # sim_build
 
-Shared Verilator/SbDut build logic for any project that autowraps its RTL
-with [SbDut](https://github.com/zeroasiccorp/switchboard) and drives it over
-this adapter's TileLink-over-Switchboard queues. Pairs with
+The **co-sim run** module for any project that autowraps its RTL with
+[SbDut](https://github.com/zeroasiccorp/switchboard) and drives it from a
+host-side client over this adapter's Switchboard queues. Pairs with
 [sb_sim](../sb_sim/README.md), the C++ side of the same consumer contract
 (`ClientTLAgent`/`ManagerTLAgent`).
 
-`sim_build.py` is a plain Python module, not a CMake target. Consume it the
-same way you'd consume any Python helper library: point `sys.path` at this
-directory and import it.
+`sim_build.py` is a plain Python module, not a CMake target. Point `sys.path`
+at this directory and import it.
 
 Tested with Python 3.10, Verilator 5.050, `siliconcompiler` 0.38.1,
 `switchboard-hw` 0.3.4, and `umi` 0.4.15.
 
-## What it does
-
-- Assembles Verilator compile flags (warnings-off list, `-O3`/`-O0`,
-  `-mcmodel=large`, `--output-split`, thread counts) for production and
-  dev-mode builds
-- Builds the SbDut `interfaces` dict for your design's TileLink client/manager
-  ports
-- Writes an absolute-path HDL filelist for `verilator -f`
-- Works around an SbDut bug where `build(fast=True)` looks for the compiled
-  binary in the wrong directory when `autowrap=True`
-- Enables FST waveform tracing without double-passing `--trace` (SbDut's own
-  `trace=True` already appends `--trace-fst` for `trace_type="fst"`; passing
-  `--trace` yourself on top of that conflicts with it)
-
 ## Usage
+
+One call builds the simulation (or reuses a cached build) and runs it against
+your client:
 
 ```python
 import sys
 from pathlib import Path
 
-_sim_build_path = str(Path(__file__).resolve().parent / "path/to/SwitchboardAdapter/sim_build")
+THIS_DIR = Path(__file__).resolve().parent
+_sim_build_path = str(THIS_DIR / "path/to/SwitchboardAdapter/sim_build")
 sys.path.insert(0, _sim_build_path)
 try:
     import sim_build
 finally:
     sys.path.remove(_sim_build_path)
 
-from siliconcompiler import Design
-
-design = Design(top_module_name)
-design.set_topmodule(top_module_name, fileset="verilator")
-
-abs_filelist, non_hdl_srcs = sim_build.chisel_generated_sources_filelist(
-    generated_sv_dir, top_module_name, build_dir
+sim_build.run_cosim(
+    THIS_DIR,                                  # project_dir: owns the build cache
+    Path("/abs/path/to/generated_sv_dir/<config>/chisel_gen_rtl"),  # rtl_dir
+    "MyTop",                                   # top module
+    sim_build.make_interfaces(n_clients=1, n_managers=0),
+    [THIS_DIR / "TestDriver", "arg1"],         # client argv
+    trace=False, rebuild=False, dev_mode=False,
 )
-
-interfaces = sim_build.make_interfaces(n_clients, n_managers)
-dut = sim_build.make_dut(design, interfaces, trace)
-
-n_build_threads, n_sim_threads = sim_build.thread_counts()
-sim_build.configure_verilator(
-    dut, n_build_threads, n_sim_threads, trace, dev_mode, abs_filelist, non_hdl_srcs
-)
-sim_build.build_or_reuse(dut, Path(sim_build.BUILD_DIR).resolve(), rebuild)
-
-dut.remove_queues_on_exit()
-dut.simulate()
 ```
 
-Your own `build.py` keeps whatever CLI parsing and testbench-binary
-invocation are specific to your project; `sim_build` covers everything that
-is the same for any consumer.
+Your own `build.py` keeps only its CLI parsing and what's specific to your
+project (RTL location, ports, client arguments).
 
-`BUILD_DIR` (`"rtl_build"`) is relative, so by default the cached Verilator
-build lands in whatever directory `build.py` is run from. To keep one cached
-build no matter the cwd, anchor it yourself and pass the same path to both
-calls:
+## What `run_cosim` does
 
-```python
-build_dir = Path(__file__).resolve().parent / sim_build.BUILD_DIR
-dut = sim_build.make_dut(design, interfaces, trace, builddir=build_dir)
-...
-sim_build.build_or_reuse(dut, build_dir, rebuild)
+- Writes an absolute-path HDL filelist from `rtl_dir/filelist.f` into
+  `project_dir/build/abs_filelist.f`.
+- Assembles Verilator flags: warnings-off list, `-O3`/`-O0`, `-mcmodel=large`,
+  `--output-split`, thread counts; `dev_mode=True` enables X-propagation and
+  assertions.
+- Builds into `project_dir/rtl_build/`, or reuses the cached build when it
+  matches (see below). The cache never depends on the current directory.
+- Starts the simulator, **then** the client. The order matters: the simulator
+  recreates every queue file, so a client started first would hang on a
+  deleted queue.
+- Waits for the client, watching the simulator. Once the client exits the
+  simulator is stopped.
+- With `trace=True`, deletes any old `./testbench.fst`, and prints
+  `waveform: <path>` after the run.
+
+Queue files (`*.q`) and the waveform land in the current directory.
+
+### Reusing the cached build
+
+`project_dir/rtl_build/build-stamp.json` records what the cached build was built
+from. The build is reused only if `top`, `rtl_dir`, `trace` and `dev_mode` all
+match and `filelist.f` hasn't changed since (Chisel rewrites it on every
+generation). Otherwise it is rebuilt, and the reason is printed:
+
+```
+rtl build: building (trace changed (False -> True))
+rtl build: reusing /…/rtl_build/AutowrapDesign/job0/compile/0/outputs/testbench.vexe
 ```
 
-`make_dut` takes a plain SbDut `interfaces` dict, not `n_clients`/`n_managers`
-directly -- `make_interfaces()` is the TileLink-specific helper that builds
-one. A design that doesn't speak TileLink (e.g. one exposing raw Switchboard
-ports) builds its own interfaces dict and passes that to `make_dut` instead.
+Hand-editing an RTL file without regenerating isn't detected. Pass
+`rebuild=True` for that.
 
-## `n_clients` / `n_managers`
+### Errors
 
-These describe your design's TileLink ports from the RTL's point of view --
-same terms `sb_sim`'s `ClientTLAgent`/`ManagerTLAgent` use:
+`run_cosim` returns `None` when the client exits 0. Otherwise it raises
+`sim_build.CosimError`, whose `stage` says which part failed and whose
+`returncode` is that process's exit code:
+
+| `stage` | When |
+|---|---|
+| `"build"` | Verilator build failed (`returncode` is `None`) |
+| `"client"` | client exited non-zero |
+| `"sim"` | simulator exited before the client finished, e.g. `$fatal` or a crash |
+
+### Concurrent runs
+
+Runs from **different** directories can share one `project_dir` safely: a
+lock on `project_dir/build/.build.lock` serialises the build step, and
+`waiting for build lock…` is printed while one run waits. Two runs from the
+**same** directory aren't supported, because they'd share queue files.
+
+## `make_interfaces(n_clients, n_managers)`
+
+Builds the SbDut `interfaces` dict for a TileLink design. The counts describe
+your design's TileLink ports from the RTL's point of view, in the same terms
+`sb_sim`'s `ClientTLAgent`/`ManagerTLAgent` use:
 
 - **`n_clients`**: number of ports where your RTL is the TileLink *manager*
   -- it receives A-channel requests and sends D-channel responses. Each one
@@ -98,7 +111,19 @@ same terms `sb_sim`'s `ClientTLAgent`/`ManagerTLAgent` use:
   becomes an `io_manager_N_a` (output from the RTL) / `io_manager_N_d` (input
   to the RTL) pair. Serve each from the host side with one `ManagerTLAgent`.
 
-A design with, say, two independent TileLink links where the RTL always
-receives requests would pass `n_clients=2, n_managers=0`. A design where the
-RTL also initiates requests on a separate link (e.g. reporting completion to
-the host) adds one to `n_managers` for that link.
+A design that doesn't speak TileLink (e.g. one exposing raw Switchboard ports)
+passes its own interfaces dict instead; see `../sb_sim/minimal/build.py`.
+
+`SB_DATA_WIDTH` (416) is the packed TileLink-over-Switchboard payload width; it
+must match `Bundles.scala`'s `DataWidth`.
+
+## Tests
+
+```sh
+python3 -m pytest tests
+```
+
+The tests run `run_cosim` for real against a small hand-written loopback design
+in `tests/fixtures/`: no Chisel needed, just Verilator and switchboard. They
+cover a cold build, cache reuse, rebuild when trace changes or the RTL is
+regenerated, a failing client, and a simulator that dies mid-run.
