@@ -22,7 +22,8 @@ SwitchboardTLAdapter/
 │   ├── tlloopback/                # Simulation example: TL loopback
 │   └── tlmem/                     # Simulation example: TL memory + ELF load
 ├── sim_build/
-│   ├── sim_build.py                # Shared Verilator/SbDut build logic (Python)
+│   ├── sim_build.py                # Co-sim run module: run_cosim() builds/reuses + runs (Python)
+│   ├── tests/                      # pytest suite + hand-written loopback fixture
 │   └── README.md                   # Usage, n_clients/n_managers, dependency versions
 ├── doc/
 │   └── dependencies.md            # Verilator, switchboard, conda install guide
@@ -84,7 +85,7 @@ Install [dependencies](./doc/dependencies.md) first, then generate the RTL for t
 conda activate switchboard
 cd sb_sim/<example>           # minimal | tlloopback | tlmem
 cmake -B build
-cmake --build build --target verilator          # incremental build + run
+cmake --build build --target verilator          # build if needed + run
 cmake --build build --target verilator-rebuild  # force full recompile + run
 cmake --build build --target clean-extra        # remove simulation artifacts
 ```
@@ -107,12 +108,13 @@ See [sb_sim/README.md](./sb_sim/README.md) for details on the C++ TileLink agent
 
 ## Building your own DUT's simulation
 
-The `minimal`/`tlloopback`/`tlmem` examples' `build.py` are thin wrappers
-around [sim_build/README.md](./sim_build/README.md) -- the shared
-Verilator/SbDut build logic (flag assembly, interface wiring, an SbDut bug
-workaround) that any project autowrapping its RTL with SbDut needs. If your
-own project drives its DUT the same way, reuse `sim_build.py` directly
-instead of writing this plumbing again.
+The `minimal`/`tlloopback`/`tlmem` examples' `build.py` are thin CLIs around
+one call to `sim_build.run_cosim()` ([sim_build/README.md](./sim_build/README.md)).
+It owns everything any project autowrapping its RTL with SbDut needs:
+Verilator flags, interface wiring, cached-build reuse, starting the simulator
+before the client, and failing loudly if either side dies. If your own project
+drives its DUT the same way, call `run_cosim()` instead of writing this
+plumbing again.
 
 ## Chisel resources
 

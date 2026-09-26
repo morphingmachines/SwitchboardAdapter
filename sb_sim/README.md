@@ -33,13 +33,12 @@ TL-A/D opcode enums (`TLAOpcode`, `TLDOpcode`), atomic op enums, packed wire-for
 
 ## Python build logic
 
-Each example's `build.py` is a thin wrapper around
-[sim_build](../sim_build/README.md) -- the shared Verilator/SbDut build logic
-(flag assembly, interface wiring, an SbDut bug workaround) common to any
-project that autowraps its RTL with SbDut. `minimal`, `tlloopback`, and
-`tlmem` each keep only their own CLI parsing and testbench-binary invocation
-in `build.py`; see `sim_build`'s README for the pieces they share and how to
-reuse them in your own project.
+Each example's `build.py` parses its CLI and makes one call to
+[`sim_build.run_cosim()`](../sim_build/README.md), which builds the Verilator
+simulation (or reuses a matching cached build), starts the simulator, then the
+client, and raises if either fails. Each example keeps only its RTL settings
+(`settings.py`), its interfaces and its client binary. See `sim_build`'s README
+to reuse it in your own project.
 
 ## Examples
 
@@ -55,7 +54,7 @@ All examples share the same targets:
 
 ```sh
 cmake -B build
-cmake --build build --target verilator          # incremental build + run
+cmake --build build --target verilator          # build if needed + run
 cmake --build build --target verilator-rebuild  # force full recompile + run
 cmake --build build --target clean-extra        # remove sim artifacts
 ```
@@ -69,10 +68,10 @@ cmake -B build -DTRACE=ON && cmake --build build --target verilator
 Debug mode (enables X-propagation and SVA assertions; disables `--x-assign fast` and `--noassert`):
 
 ```sh
-cmake -B build -DDEBUG=ON && cmake --build build --target verilator-rebuild
+cmake -B build -DDEBUG=ON && cmake --build build --target verilator
 ```
 
-> **Note:** switching between debug and non-debug requires a full rebuild (`verilator-rebuild`) since the verilator compile flags differ.
+> **Note:** switching debug or tracing on or off triggers a full rebuild automatically, since the Verilator compile flags differ; `build.py` prints `rtl build: building (…)` with the reason.
 
 ## SV wrapper
 

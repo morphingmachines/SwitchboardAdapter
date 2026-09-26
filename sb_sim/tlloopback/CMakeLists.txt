@@ -42,7 +42,8 @@ set(BUILD_PY "${CMAKE_CURRENT_SOURCE_DIR}/build.py"
     $<$<BOOL:${DEBUG}>:--debug>
 )
 
-# verilator: incremental — skips unchanged RTL (fast=True in build.py).
+# verilator: build if needed, then run. The cached build is reused unless trace,
+# dev mode, the top or the RTL changed (sim_build.run_cosim prints why it rebuilds).
 add_custom_target(verilator
     COMMAND ${BUILD_PY} 2>&1
     DEPENDS client
@@ -50,7 +51,8 @@ add_custom_target(verilator
     COMMENT "Verilating RTL and running simulation"
 )
 
-# verilator-rebuild: full recompile (fast=False). Use when DPI sources change.
+# verilator-rebuild: force a full recompile. Use when DPI sources or hand-edited
+# RTL change -- the build stamp doesn't detect those.
 add_custom_target(verilator-rebuild
     COMMAND ${BUILD_PY} --rebuild 2>&1
     DEPENDS client
