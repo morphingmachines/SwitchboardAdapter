@@ -26,7 +26,7 @@ SwitchboardTLAdapter/
 │   ├── tests/                      # pytest suite + hand-written loopback fixture
 │   └── README.md                   # Usage, n_clients/n_managers, dependency versions
 ├── doc/
-│   └── dependencies.md            # Verilator, switchboard, conda install guide
+│   └── dependencies.md            # Verilator + Python package install guide
 ├── build.sc                       # Mill build definition
 └── Makefile                       # RTL generation targets
 ```
@@ -82,7 +82,6 @@ val res1: freechips.rocketchip.tilelink.TLBundleParameters =
 Install [dependencies](./doc/dependencies.md) first, then generate the RTL for the target module.
 
 ```bash
-conda activate switchboard
 cd sb_sim/<example>           # minimal | tlloopback | tlmem
 cmake -B build
 cmake --build build --target verilator          # build if needed + run

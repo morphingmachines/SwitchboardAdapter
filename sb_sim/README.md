@@ -94,7 +94,7 @@ cp .vscode/settings.json.template .vscode/settings.json
 
 | Field | Value |
 |-------|-------|
-| `python.defaultInterpreterPath` | Path to Python in your conda env, e.g. `~/miniconda3/envs/Switchboard/bin/python` |
+| `python.defaultInterpreterPath` | Python with the pip packages installed, e.g. `/usr/bin/python3` |
 | `python.analysis.extraPaths` | Switchboard repo root (dir containing the `switchboard/` package) |
 
 `settings.json` is gitignored — changes stay local.
