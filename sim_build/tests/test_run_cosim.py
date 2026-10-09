@@ -4,6 +4,8 @@ Needs Verilator and switchboard installed. The first test does a cold build,
 so expect a few minutes for the whole file.
 """
 
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -68,6 +70,17 @@ def test_trace_change_rebuilds_and_writes_waveform(run, tmp_path, capfd):
     assert "rtl build: building (trace changed (False -> True))" in out
     assert f"waveform: {stale}" in out
     assert stale.read_bytes() != b"stale"
+
+
+@pytest.mark.skipif(not shutil.which("fst2vcd"), reason="needs fst2vcd (gtkwave)")
+def test_waveform_is_finalized(run, tmp_path):
+    # The sim must be stopped so it closes the FST; a killed sim leaves a file
+    # with no header or hierarchy that no viewer can open.
+    run("pass", trace=True)
+    vcd = subprocess.run(["fst2vcd", "-f", str(tmp_path / "testbench.fst")],
+                         capture_output=True, text=True)
+    assert vcd.returncode == 0, vcd.stdout + vcd.stderr
+    assert "$enddefinitions" in vcd.stdout
 
 
 def test_regenerated_rtl_rebuilds(run, capfd):

@@ -16,6 +16,7 @@ See README.md in this directory for usage.
 import fcntl
 import json
 import os
+import signal
 import subprocess
 import time
 from contextlib import contextmanager
@@ -349,13 +350,19 @@ def _build_or_reuse(dut: SbDut, build_dir: Path, stamp: dict, rebuild: bool) -> 
 
 
 def _stop(proc: subprocess.Popen) -> None:
-    if proc.poll() is None:
-        proc.terminate()
+    # SIGINT first: switchboard's Verilator main loop exits on it and runs
+    # top->final(), which closes the FST waveform. SIGTERM kills it before
+    # then, leaving a waveform with no header that no viewer can open.
+    for stop in (lambda: proc.send_signal(signal.SIGINT), proc.terminate, proc.kill):
+        if proc.poll() is not None:
+            return
+        stop()
         try:
             proc.wait(_STOP_TIMEOUT_S)
+            return
         except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
+            pass
+    proc.wait()
 
 
 def _wait(sim: subprocess.Popen, client: subprocess.Popen) -> None:
