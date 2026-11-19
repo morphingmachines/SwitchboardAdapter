@@ -3,5 +3,6 @@
     "files.watcherExclude": {
         "**/target/**": true
     },
+    "cmake.sourceDirectory": "/home/ritika/work/development/SwitchboardAdapter/sb_sim/tlmem",
 
 }
