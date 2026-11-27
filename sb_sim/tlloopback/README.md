@@ -22,7 +22,7 @@ client.cc                          TLLoopback DUT
 | File | Role |
 |------|------|
 | `client.cc` | Drives `ClientTLAgent` + `ManagerTLAgent` from two threads |
-| `build.py` | Builds Verilator sim, cleans queues, runs client + DUT |
+| `build.py` | CLI around `sim_build.run_cosim`: builds or reuses the sim, runs DUT then client |
 | `settings.py` | `CHISEL_GEN_RTL_DIR`, `TOP_MODULE`, `N_CLIENTS`, `N_MANAGERS` |
 | `CMakeLists.txt` | Build targets |
 

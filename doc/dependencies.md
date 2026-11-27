@@ -18,38 +18,36 @@ make -j$(nproc)
 ```
 Add `$VERILATOR_ROOT/bin` to `PATH` environment variable.
 
-[Conda env](https://conda.io/projects/conda/en/latest/user-guide/getting-started.html)
-==============================
-- Install `switchboard` in a conda env to keep things tidy. Follow below steps to install conda.
+Python packages
+===============
+Use the system Python 3.10 (`/usr/bin/python3`) with packages installed into
+your user site-packages (`~/.local`) via pip. `sim_build` is tested with these
+versions:
+
 ```sh
-mkdir -p ~/miniconda3
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
-bash ~/miniconda3/minconda.sh -b -u -p ~/miniconda3
-rm -rf ~/miniconda3/miniconda.sh
+python3 -m pip install --user \
+    switchboard-hw==0.3.4 \
+    siliconcompiler==0.38.1 \
+    umi==0.4.15 \
+    pytest               # only needed to run sim_build/tests
 ```
 
-- Create a conda environment for `switchboard`
+Check the install:
+
 ```sh
-conda create --name switchboard
+python3 -c "import switchboard, siliconcompiler; print(switchboard.__file__)"
 ```
 
-[Switchboard](https://github.com/zeroasiccorp/switchboard)
+[Switchboard](https://github.com/zeroasiccorp/switchboard) source (optional)
 ====================================
-Follow this [link](https://github.com/zeroasiccorp/switchboard/tree/main/examples/umiram#readme) for detailed instructions.
+Only needed to read or debug switchboard itself; the pip package above is enough
+to build and run the simulations. See the
+[switchboard examples](https://github.com/zeroasiccorp/switchboard/tree/main/examples/umiram#readme).
 
 ```sh
 git clone https://github.com/zeroasiccorp/switchboard.git
 cd switchboard
 git submodule update --init
-```
-
-- Install all require python packages within `switchboard` conda environment
-```sh
-conda activate switchboard
-conda install pip
-pip install --upgrade pip
-pip install -e .
-pip install -r examples/requirements.txt
 ```
 
 <!---

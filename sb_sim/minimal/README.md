@@ -22,7 +22,7 @@ PASS!
 | File | Role |
 |------|------|
 | `client.cc` | Sends/receives SB packets via `SBTX`/`SBRX` |
-| `build.py` | Builds Verilator sim, cleans queues, runs client + DUT |
+| `build.py` | CLI around `sim_build.run_cosim`: builds or reuses the sim, runs DUT then client |
 | `settings.py` | `CHISEL_GEN_RTL_DIR`, `TOP_MODULE` |
 | `CMakeLists.txt` | Build targets |
 

@@ -4,12 +4,8 @@
 # This code is licensed under Apache License 2.0 (see LICENSE for details)
 
 import argparse
-import os
 import sys
 from pathlib import Path
-
-from siliconcompiler import Design
-from switchboard import binary_run
 
 PROJ_DIR = Path(__file__).resolve().parent.parent.parent
 THIS_DIR = Path(__file__).resolve().parent
@@ -21,58 +17,17 @@ try:
 finally:
     sys.path.remove(_sim_build_path)
 
+from settings import CHISEL_GEN_RTL_DIR, TOP_MODULE  # noqa: E402
+
 SB_DATA_WIDTH = 256  # raw Switchboard packet width -- no TileLink packing here
-
-
-def main(
-    rtl_dir,
-    topModule_name,
-    trace=False,
-    rebuild=False,
-    debug=False,
-):
-    os.environ.setdefault("CXX", "ccache g++")
-    os.environ.setdefault("CC", "ccache gcc")
-
-    n_build_threads, n_sim_threads = sim_build.thread_counts()
-
-    abs_filelist, non_hdl_srcs = sim_build.chisel_generated_sources_filelist(
-        PROJ_DIR / "generated_sv_dir", rtl_dir, THIS_DIR / "build"
-    )
-    design = Design(topModule_name)
-    design.set_topmodule(topModule_name, fileset="verilator")
-
-    interfaces = {
-        "io_in": dict(type="sb", dw=SB_DATA_WIDTH, uri="in_port.q", direction="input"),
-        "io_out": dict(type="sb", dw=SB_DATA_WIDTH, uri="out_port.q", direction="output"),
-    }
-    dut = sim_build.make_dut(design, interfaces, trace)
-
-    sim_build.configure_verilator(
-        dut, n_build_threads, n_sim_threads, trace, debug, abs_filelist, non_hdl_srcs
-    )
-    sim_build.build_or_reuse(dut, Path(sim_build.BUILD_DIR).resolve(), rebuild)
-
-    dut.remove_queues_on_exit()
-
-    # start client and chip
-    # this order yields a smaller waveform file
-    client = binary_run(THIS_DIR / "client")
-
-    dut.simulate()
-
-    retcode = client.wait()
-    if retcode != 0:
-        raise RuntimeError(f"client exited with code {retcode}")
-
+INTERFACES = {
+    "io_in": dict(type="sb", dw=SB_DATA_WIDTH, uri="in_port.q", direction="input"),
+    "io_out": dict(type="sb", dw=SB_DATA_WIDTH, uri="out_port.q", direction="output"),
+}
 
 if __name__ == "__main__":
-    from settings import CHISEL_GEN_RTL_DIR, TOP_MODULE
-
-    parser = argparse.ArgumentParser(description="Build and simulate with TestDriver")
-    parser.add_argument(
-        "--trace", action="store_true", help="Enable FST waveform tracing"
-    )
+    parser = argparse.ArgumentParser(description="Build and simulate with the client")
+    parser.add_argument("--trace", action="store_true", help="Enable FST waveform tracing")
     parser.add_argument(
         "--rebuild",
         action="store_true",
@@ -83,13 +38,15 @@ if __name__ == "__main__":
         action="store_true",
         help="Debug mode: enable X-propagation and assertions (disables --x-assign fast / --noassert)",
     )
-    args, remaining = parser.parse_known_args()
-    sys.argv = [sys.argv[0]] + remaining
+    args = parser.parse_args()
 
-    main(
-        CHISEL_GEN_RTL_DIR,
+    sim_build.run_cosim(
+        THIS_DIR,
+        PROJ_DIR / "generated_sv_dir" / CHISEL_GEN_RTL_DIR,
         TOP_MODULE,
+        INTERFACES,
+        [THIS_DIR / "client"],
         trace=args.trace,
         rebuild=args.rebuild,
-        debug=args.debug,
+        dev_mode=args.debug,
     )

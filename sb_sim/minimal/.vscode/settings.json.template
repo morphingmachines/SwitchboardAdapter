@@ -1,6 +1,6 @@
 {
-    // Set to your local conda env python, e.g. "~/miniconda3/envs/Switchboard/bin/python"
-    "python.defaultInterpreterPath": "/path/to/your/conda/env/bin/python",
+    // Python with switchboard/siliconcompiler pip-installed (see doc/dependencies.md)
+    "python.defaultInterpreterPath": "/usr/bin/python3",
     "python.analysis.extraPaths": [
         // NOTE: python.analysis.extraPaths does NOT expand env vars ($VAR or ${env:VAR}).
         // Copy this file to settings.json and set your local switchboard path below.
@@ -8,8 +8,8 @@
         // "/home/you/switchboard"  (NOT "/home/you/switchboard/switchboard")
         "/path/to/your/switchboard"
     ],
-    "python-envs.defaultEnvManager": "ms-python.python:conda",
-    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.defaultPackageManager": "ms-python.python:pip",
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter",
         "editor.formatOnSave": true,
