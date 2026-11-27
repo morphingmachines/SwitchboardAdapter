@@ -105,6 +105,13 @@ cp .vscode/settings.json.template .vscode/settings.json
 | Dependency | Used by |
 |-----------|---------|
 | [Switchboard](https://github.com/zeroasiccorp/switchboard) on `PATH` | all |
-| Verilator | all |
+| Verilator 5.012 (also tested with 5.050) | all |
 | C++17 compiler | all |
 | `$RISCV` (fesvr headers + `libfesvr`) | `tlmem` only |
+
+> **Note:** an installed (`make install`) Verilator has its `--prefix` compiled
+> into `verilator_bin` and locates its `include/` files through it. Configure with
+> the final install location (e.g. `./configure --prefix=<install>/v5.012`), or
+> export `VERILATOR_ROOT` to the matching `share/verilator`. A moved install fails
+> with `Cannot find verilated_std.sv`. Check with
+> `verilator --getenv VERILATOR_ROOT`.

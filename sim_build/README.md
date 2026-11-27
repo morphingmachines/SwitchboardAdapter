@@ -10,7 +10,7 @@ this adapter's TileLink-over-Switchboard queues. Pairs with
 same way you'd consume any Python helper library: point `sys.path` at this
 directory and import it.
 
-Tested with Python 3.10, Verilator 5.050, `siliconcompiler` 0.38.1,
+Tested with Python 3.10, Verilator 5.012 and 5.050, `siliconcompiler` 0.38.1,
 `switchboard-hw` 0.3.4, and `umi` 0.4.15.
 
 ## What it does
